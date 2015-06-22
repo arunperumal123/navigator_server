@@ -6,7 +6,7 @@ module.exports = {
     "securePort": 8433,                                   // The HTTPS port on which the server is to listen (means that the app is at https://localhost:8433 for instance)
     "distFolder": path.resolve(__dirname, '../../client/dist'),  // The folder that contains the application files (note that the files are in a different repository) - relative to this file
     "mongoHost" : 'arunperumal:navigator@ds53080.mongolab.com',
-    "mongoPort"           : 53080/heroku_85bs2bx5,
+    "mongoPort"           : 53080,
     "DB"                  : 'CloudDB',
     "roviCollection"      : "rovi",
     "tribuneCollection"   : "tribune"
