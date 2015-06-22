@@ -1,11 +1,11 @@
 {
-  "author": "Pulak",
-  "name": "Angular-node-STB-Client",
+  "author": "Arun",
+  "name": "Navigator_Server",
   "homepage": "https://github.com/pulakb/angular-node-starter-kit",
   "version": "0.0.1",
   "repository": {
     "type": "git",
-    "url": "https://github.com/pulakb/angular-node-starter-kit.git"
+    "url": "https://github.com/arunperumal123/navigator_server"
   },
   "engines": {
     "node": ">= 0.12.0"
