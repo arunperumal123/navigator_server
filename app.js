@@ -95,6 +95,7 @@ function validate (req, res, next) {
 // Set Routers
 router.get('/', function (req, res) {
     res.send('Hello');
+    res.end();
 });
 
 // Set a stream listener for tweets matching tracking keywords
