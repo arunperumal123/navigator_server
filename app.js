@@ -92,11 +92,6 @@ function validate (req, res, next) {
     next();
 }
 
-// Set Routers
-router.get('/', function (req, res) {
-    res.send('Hello');
-    res.end();
-});
 
 // Set a stream listener for tweets matching tracking keywords
 /*twit.stream('statuses/filter', { track: 'scotch_io, #scotchio'}, function (stream) {
@@ -104,7 +99,7 @@ router.get('/', function (req, res) {
 });*/
 
 // Call the router
-app.use('/', router);
+app.use('/', routes);
 
 // Call the Router
 app.use('/epg/', validate, routes);
