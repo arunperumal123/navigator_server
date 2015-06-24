@@ -23,7 +23,7 @@ var express = require('express'),
 * */
 
 // Connect to our mongo Database
-mongoose.connect('mongodb://localhost:27017/TweetDB');
+//mongoose.connect('mongodb://localhost:27017/TweetDB');
 
 // Create a new ntwitter instance
 //var twit = new twitter(config.twitter);
