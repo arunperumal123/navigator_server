@@ -1,5 +1,5 @@
 {
-  "name": "Node STB Server",
+  "name": "Node-STB-Server",
   "version": "0.0.1",
   "description": "Node STB Server",
   "main": "www.js",
