@@ -5,6 +5,6 @@ var app = require('../app.js'),
 // =============================================================================
 var port = process.env.PORT || 9080;
 
-app.listen(config.server.listenPort);
+app.listen(port);
 
 console.log('Magic happens on port ' + port);
