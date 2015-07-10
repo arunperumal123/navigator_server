@@ -28,6 +28,10 @@ var express = require('express'),
 // Create a new ntwitter instance
 //var twit = new twitter(config.twitter);
 
+// Connect to User Authentication server
+var dbURL = 'mongodb://localhost:27017/user_app_db';
+mongoose.connect(dbURL);
+
 
 // Parse application/json
 app.use(bodyParser.json());
