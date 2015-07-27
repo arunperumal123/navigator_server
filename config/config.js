@@ -9,6 +9,9 @@ module.exports = {
     "mongoPort"           : 53080,
     "DB"                  : 'rovi_epg_db',
     "roviCollection"      : "epg_collection",
+	"epgCollection"		   : "epg_collection",
+	"channelCollection"		   : "channel_collection",
+	
     "tribuneCollection"   : "tribune"
   },
   twitter: {
