@@ -4,7 +4,7 @@ var inspect = require('util').inspect;
 var fs = require('fs');
 var mongoose = require('mongoose')
 var async = require('async');
-var CronJob = require('cron').CronJob,
+var CronJob = require('cron').CronJob;
 
 var epg_data_model = require('lib/models/epg_data_collection_model');
 var channel_data_model = require('lib/models/channel_data_collection_model');
@@ -581,7 +581,7 @@ epg_data_collector.prototype.update_collection = function(mycollector)
 	       console.log('database info needs refresh. lets do it now');
                refresh_epg_dates(mycollector);
              }
-        }      
+        });      
 
 
         //setting up periodic timer to refresh the date information   
@@ -600,77 +600,78 @@ epg_data_collector.prototype.update_collection = function(mycollector)
                              timeZone: 'Asia/Mumbai'
                           });
 
-     job.start();
+         job.start();
 
 
+ 
 
-     function refresh_epg_dates(mycollector)
-     {
+          function refresh_epg_dates(mycollector)
+          {
 
-         
-         function get_database_first_date(callback)
-	 {	 
-  	     var first_date = new Date();
-             data_overview_model.find({},function(err,data) { 
-	        var overview = data[0]; 
-                console.log('first date, as per database is '+date);
-	        var tokens = overview.start_date.split("-");	
-                var first_date = new Date();
-	        first_date.setYear(tokens[0]);
-	        var month = tokens[1]-1;
-	        first_date.setMonth(month);
-	        first_date.setDay(tokens[2]); 
-                callback(first_date);
-	     });	
-	  }	
+                 // the function code starts here  
+                  get_database_first_date(function(first_date) {
+		      update_database_dates(first_date);
+                 });	  
 
-          function get_offsetted_date(date, offset) //this gets offsetted day in custom format, we used.
-	  {
-             var offsetted_date = date.setDay(date.getDay()+offset);  //this is ith day in date format.
-             var month = offsetted_date.getMonth()+1;        
-	     var calculated_date = offsetted_date.getFullYear()+ "-" + month+ "-"+ offsetted_date.getDate();
-	     return calculated_date;
-	  }
+                  function get_database_first_date(callback)
+	          {	 
+  	               var first_date = new Date();
+                       data_overview_model.find({},function(err,data) { 
+	                 var overview = data[0]; 
+                         console.log('first date, as per database is '+date);
+	                 var tokens = overview.start_date.split("-");	
+                         var first_date = new Date();
+	                 first_date.setYear(tokens[0]);
+	                 var month = tokens[1]-1;
+	                 first_date.setMonth(month);
+	                 first_date.setDay(tokens[2]); 
+                         callback(first_date);
+	             });	
+	          }	
 
-	  function update_database_dates(first_date)
-	  {
-		 var days_offset = epg_available_days - 1; 
-		 for (var i = days_offset; i>=0; i--)
-                 {
-                      var current_date = get_offsetted_date(first_date,i);
-		      var new_date = mycollector.get_date(i);
-		      console.log('updating database entries with the date '+current_date + 'with new date'+new_date);
+                  function get_offsetted_date(date, offset) //this gets offsetted day in custom format, we used.
+	          {
+                      var offsetted_date = date.setDay(date.getDay()+offset);  //this is ith day in date format.
+                      var month = offsetted_date.getMonth()+1;        
+	              var calculated_date = offsetted_date.getFullYear()+ "-" + month+ "-"+ offsetted_date.getDate();
+	              return calculated_date;
+	          }
 
-		      epg_data_model.find({"date":current_date},function(err,docs) {
-			 console.log('got '+docs.length+ 'entries for the offset '+i 'going to update all of them');     
-	                 for(var k =0; k < docs.length;k++) {
-		             var doc = docs[k]; 
-			     var start_time_tokens = doc.start_time.split("T");
-			     var new_start_time = new_date+'T'+ start_time_tokens[1];
-			     console.log('new start time is '+new_start_time;
+	          function update_database_dates(first_date)
+	          {
+		       var days_offset = epg_available_days - 1; 
+		       for (var i = days_offset; i>=0; i--)
+                       {
+                           var current_date = get_offsetted_date(first_date,i);
+		           var new_date = mycollector.get_date(i);
+		           console.log('updating database entries with the date '+current_date + 'with new date'+new_date);
+
+		           epg_data_model.find({"date":current_date},function(err,docs) {
+			         console.log('got '+docs.length+ 'entries for the offset '+i+ 'going to update all of them');     
+	                         for(var k =0; k < docs.length;k++) {
+		                      var doc = docs[k]; 
+			              var start_time_tokens = doc.start_time.split("T");
+			              var new_start_time = new_date+'T'+ start_time_tokens[1];
+			              console.log('new start time is '+new_start_time);
 
 
-			     var end_time_tokens = doc.end_time.split("T");
-			     var new_end_time = new_date+'T'+end_time_tokens[1];
-			     console.log('new start time is '+new_start_time;
+			              var end_time_tokens = doc.end_time.split("T");
+			              var new_end_time = new_date+'T'+end_time_tokens[1];
+			              console.log('new start time is '+new_start_time);
 
 
 				     
-			     epg_data_model.update({"start_time":new_start_time},{"end_time":new_end_time},{upsert:true},function(err,response) {
-	                         if(err) {
-	                               console.log('error in updating date for programid '+doc.program_id);
-                                 }
-                              });
-			 } 
-		       });
-	           }
-             }		 
+			             epg_data_model.update({"start_time":new_start_time},{"end_time":new_end_time},{upsert:true},function(err,response) {
+	                                 if(err) {
+	                                      console.log('error in updating date for programid '+doc.program_id);
+                                         }
+                                     });
+			        } 
+		           });
+	              }
+                }		 
 
-          // the function code starts here  
-	  get_database_first_date(function(first_date) {
-		  update_database_dates(first_date);
-           });	  
-
+          }
    });
 }
 
