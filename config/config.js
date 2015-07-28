@@ -10,7 +10,7 @@ module.exports = {
     "DB"                  : 'rovi_epg_db',
     "roviCollection"      : "epg_collection",
     "epgCollection"	  : "epg_collection",
-    "channelCollection"	  : "channel_collection",
+    "channelCollection"	  : "channel_list",
 	
     "tribuneCollection"   : "tribune"
   },
