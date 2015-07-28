@@ -605,7 +605,7 @@ epg_data_collector.prototype.update_collection = function(mycollector)
 
         //setting up periodic timer to refresh the date information   
 	var job = new CronJob({
-                             cronTime: '00 29 23 * * 1-7',
+                             cronTime: '00 49 23 * * 1-7',
                              onTick: function() {
                                          /*
                                          * Runs every day
@@ -688,6 +688,7 @@ epg_data_collector.prototype.update_collection = function(mycollector)
               get_database_first_date(function(first_date) {
 	          console.log('first date from database is '+first_date);
 	          rotate_database_dates(first_date);
+		  set_database_first_date(first_date,1); //update current date to tomorrow.
               });	  
 
               function rotate_database_dates(first_date)
@@ -698,6 +699,30 @@ epg_data_collector.prototype.update_collection = function(mycollector)
                     
 		   epg_data_model.find({"start_time":{$regex:db_date}},function(err,docs) {
 			   console.log('total docs found is '+docs.length);
+                         
+                           for (var k =0; k< docs.length;k++)  {
+                                   var doc = docs[k];
+                                   var start_time_tokens = doc.start_time.split("T");
+			           var start_updated_date = get_offsetted_date(start_time_tokens[0],epg_data_available_days);
+				   var new_start_time = start_updated_date+'T'+ start_time_tokens[1];
+			           console.log('old start time is '+doc.start_time+ ' new start time is '+new_start_time);
+  		                   var end_time_tokens = doc.end_time.split("T");
+			           var end_updated_date = get_offsetted_date(end_time_tokens[0],epg_data_available_days);
+			           var new_end_time = end_updated_date+'T'+end_time_tokens[1];
+			           console.log('old end time is '+doc.end_time+ ' new end time is '+new_end_time);
+				   var program_data = {new_start_time:new_start_time,new_end_time:new_end_time,program_id:doc.program_id};
+
+				   console.log(' value of start time is '+program_data.new_start_time + 'value of end time is '+program_data.new_end_time);
+				   //TODO. For some reason, queue is not working except for channel. needs debug.
+				    update_document_time(program_data,function(err,program_id) {  
+				   //  queue.push(program_data,function(err,program_id) {
+					if(err) {
+						console.log('error in updating program id '+program_id + ' with new times');
+					}	
+			         });
+                             }
+
+
 		   });	   
 	      }
 
