@@ -589,8 +589,9 @@ epg_data_collector.prototype.update_collection = function(mycollector)
 
 	     var info = docs[0];	
              var todays_date= mycollector.get_date(0);
+	     var database_date = info.data_start_date;
 	     console.log('database date is '+info.data_start_date + ' today date is '+todays_date);
-	     if(todays_date == info.start_date)
+	     if(todays_date.localeCompare(database_date) == 0)
 	     {
 		 console.log('epg data is already upto date. no need to refresh now');
 	     }
@@ -604,14 +605,14 @@ epg_data_collector.prototype.update_collection = function(mycollector)
 
         //setting up periodic timer to refresh the date information   
 	var job = new CronJob({
-                             cronTime: '00 00 00 * * 1-7',
+                             cronTime: '00 29 23 * * 1-7',
                              onTick: function() {
                                          /*
                                          * Runs every day
                                          * at 00:00 AM. 
                                          */
 				      console.log('cron job. trigger.lets brush and refresh EPG days');
-				      refresh_epg_days(mycollector);
+				      rotate_epg_dates(mycollector);
                    
 			     },
                              start: false,
@@ -621,104 +622,119 @@ epg_data_collector.prototype.update_collection = function(mycollector)
          job.start();
 
 
+         function get_database_first_date(callback)
+	 {	 
+  	       var first_date = new Date();
+               data_overview_model.find({},function(err,data) { 
+	           var overview = data[0]; 
+                   console.log('first date, as per database is '+overview.data_start_date);
+	           var tokens = overview.data_start_date.split("-");	
+                   var first_date = new Date();
+	           first_date.setYear(tokens[0]);
+	           var month = tokens[1]-1;
+	           first_date.setMonth(month);
+	           first_date.setDate(tokens[2]); 
+                   callback(first_date);
+	       });	
+	 }	
  
+          function update_document_time(program_data,callback)
+	  {
+	         console.log('updating start time '+program_data.new_start_time + ' for program id '+program_data.program_id);
+	         epg_data_model.update({program_id:program_data.program_id},{"start_time":program_data.new_start_time,
+	                                                         "end_time":program_data.new_end_time},{upsert:true},function(err,response) {
+	               if(err) {
+	                    console.log('error in updating date for programid '+doc.program_id);
+	     	            callback(err,program_data.program_id);
+                       }
+                 });
+          }
+
+
+          function get_offsetted_date(date, offset) //this gets offsetted day in custom format, we used.
+	  {
+                var new_date = new Date();
+		      
+	        var date_attributes = date.split("-");
+	        new_date.setYear(date_attributes[0]);
+	        var set_month = date_attributes[1]-1;
+	        new_date.setMonth(set_month);
+	        new_date.setDate(parseInt(date_attributes[2])+ offset);
+
+                var month = new_date.getMonth()+1;        
+	        month = pad(month,2);
+	        var calculated_date = new_date.getFullYear()+ "-" + month+ "-"+ pad(new_date.getDate(),2);
+	        return calculated_date;
+	  }
+
+          
+	  function set_database_first_date(first_date,offset)
+	  {
+	        first_date.setDate(first_date.getDate() + offset);		  
+                var month = first_date.getMonth() + 1;
+		var new_date = first_date.getFullYear() + "-" +  pad(month,2) + "-" + pad(first_date.getDate(),2);
+                console.log('so the new date for updated database is '+new_date);
+
+                data_overview_model.update(   
+		        {data_provider:"rovi"},{data_start_date: new_date},{upsert:true},    
+                         function(err) {
+		                  console.log('##################################updated database starting date########################');
+                         });       
+         }  
+
+         function rotate_epg_dates(mycollector)       //move current date to 15th date.
+         {
+              // the function code starts here  
+              get_database_first_date(function(first_date) {
+	          console.log('first date from database is '+first_date);
+	          rotate_database_dates(first_date);
+              });	  
+
+              function rotate_database_dates(first_date)
+	      {
+                   var month = first_date.getMonth() + 1;
+		   var db_date = first_date.getFullYear() + "-" + pad(month,2) + "-" + pad(first_date.getDate(),2);
+		   console.log('current first date as per database is '+db_date);
+                    
+		   epg_data_model.find({"start_time":{$regex:db_date}},function(err,docs) {
+			   console.log('total docs found is '+docs.length);
+		   });	   
+	      }
+
+	 }
+
+
+
+
 
           function refresh_epg_dates(mycollector)
           {
-
-                 // the function code starts here  
-                  get_database_first_date(function(first_date) {
-		      console.log('first date from database is '+first_date);
-		      update_database_dates(first_date);
+                  // the function code starts here  
+                 get_database_first_date(function(first_date) {
+	              console.log('first date from database is '+first_date);
+	              update_database_dates(first_date);
                  });	  
-
-                  function get_database_first_date(callback)
-	          {	 
-  	               var first_date = new Date();
-                       data_overview_model.find({},function(err,data) { 
-	                 var overview = data[0]; 
-                         console.log('first date, as per database is '+overview.data_start_date);
-	                 var tokens = overview.data_start_date.split("-");	
-                         var first_date = new Date();
-	                 first_date.setYear(tokens[0]);
-	                 var month = tokens[1]-1;
-	                 first_date.setMonth(month);
-	                 first_date.setDate(tokens[2]); 
-                         callback(first_date);
-	             });	
-	          }	
-
-
-                  function set_database_first_date(first_date,offset)
-		  {
-		      	  
-	             first_date.setDate(first_date.getDate() + offset);		  
-                     var month = first_date.getMonth() + 1;
-		     var new_date = first_date.getFullYear() + "-" +  pad(month,2) + "-" + pad(first_date.getDate(),2);
-                     console.log('so the new date for updated database is '+new_date);
-
-                     data_overview_model.update(   
-				     {data_provider:"rovi"},{data_start_date: new_date},{upsert:true},    
-                     function(err) {
-		                  console.log('##################################updated database starting date########################');
-                     });       
-                  }  
-
-
-
-                  function get_offsetted_date(date, offset) //this gets offsetted day in custom format, we used.
-	          {
-                      var new_date = new Date();
-		      
-		      var date_attributes = date.split("-");
-		      new_date.setYear(date_attributes[0]);
-		      var set_month = date_attributes[1]-1;
-		      new_date.setMonth(set_month);
-		      new_date.setDate(parseInt(date_attributes[2])+ offset);
-
-                      var month = new_date.getMonth()+1;        
-		      month = pad(month,2);
-	              var calculated_date = new_date.getFullYear()+ "-" + month+ "-"+ pad(new_date.getDate(),2);
-	              return calculated_date;
-	          }
 
 	          function update_database_dates(first_date)
 	          {
-		    
+
 		      var current_date = new Date();
 	              console.log('database first date is '+first_date + 'current date is '+current_date);
                       var timeDiff = math.abs(current_date.getTime() - first_date.getTime());
                       var diffDays = math.floor(timeDiff / (1000 * 3600 * 24));
 		      console.log('diff among dates is '+diffDays); 
 
-
-                      function update_document_time(program_data,callback)
-		      {
-		              console.log('updating start time '+program_data.new_start_time + ' for program id '+program_data.program_id);
-			      epg_data_model.update({program_id:program_data.program_id},{"start_time":program_data.new_start_time,
-				                                                         "end_time":program_data.new_end_time},{upsert:true},function(err,response) {
-	                     if(err) {
-	                          console.log('error in updating date for programid '+doc.program_id);
-				  callback(err,program_data.program_id);
-                             }
-                         });
-
-			    console.log('done with updating data');  
-		      }
-
-
-     	          //   var queue = async.queue(update_document_time,mycollector.max_db_concurreny);
-
 		      epg_data_model.find({},function(err,docs) {
 			   console.log('got '+docs.length+ 'entries .update all of them');     
 	                   for(var k =0; k < docs.length;k++) {
 		                 var doc = docs[k];
 			           var start_time_tokens = doc.start_time.split("T");
-			           var updated_date = get_offsetted_date(start_time_tokens[0],diffDays);
-				   var new_start_time = updated_date+'T'+ start_time_tokens[1];
+			           var start_updated_date = get_offsetted_date(start_time_tokens[0],diffDays);
+				   var new_start_time = start_updated_date+'T'+ start_time_tokens[1];
 			           console.log('old start time is '+doc.start_time+ ' new start time is '+new_start_time);
   		                   var end_time_tokens = doc.end_time.split("T");
-			           var new_end_time = updated_date+'T'+end_time_tokens[1];
+			           var end_updated_date = get_offsetted_date(end_time_tokens[0],diffDays);
+			           var new_end_time = end_updated_date+'T'+end_time_tokens[1];
 			           console.log('old end time is '+doc.end_time+ ' new end time is '+new_end_time);
 				   var program_data = {new_start_time:new_start_time,new_end_time:new_end_time,program_id:doc.program_id};
 
@@ -734,7 +750,7 @@ epg_data_collector.prototype.update_collection = function(mycollector)
 			 });
 
                            //update database first date
-                    //       set_database_first_date(first_date,diffDays);
+                           set_database_first_date(first_date,diffDays);
                      
 
 
