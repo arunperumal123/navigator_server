@@ -7,9 +7,11 @@ module.exports = {
     "distFolder": path.resolve(__dirname, '../../client/dist'),  // The folder that contains the application files (note that the files are in a different repository) - relative to this file
     "mongoHost" : 'arunperumal:navigator@ds53080.mongolab.com',
     "mongoPort"           : 53080,
-    "DB"                  : 'rovi_epg_db',
+    //"DB"                : 'rovi_epg_db',
+	"DB"                  : 'nc_navigator_db',
+
     "roviCollection"      : "epg_collection",
-    "epgCollection"	  : "epg_collection",
+    "epgCollection"	      :"epg_collection",
     "channelCollection"	  : "channel_list",
 	
     "tribuneCollection"   : "tribune"
