@@ -5,10 +5,13 @@ var fs = require('fs');
 var mongoose = require('mongoose')
 var async = require('async');
 var CronJob = require('cron').CronJob;
+var math = require('mathjs');
 
-var epg_data_model = require('lib/models/epg_data_collection_model');
-var channel_data_model = require('lib/models/channel_data_collection_model');
-var data_overview_model = require('lib/models/channel_data_collection_model');
+
+
+var epg_data_model = require('./lib/models/epg_data_collection_model.js');
+var channel_data_model = require('./lib/models/channel_data_collection_model.js');
+var data_overview_model = require('./lib/models/data_overview_model.js');
 
 var epg_data_available_days = 14;
 
@@ -47,10 +50,19 @@ epg_data_collector.prototype.get_date = function(offset)
    full_date.setDate(full_date.getDate() + offset);
    var day = full_date.getDate();
    var month = full_date.getMonth() + 1;
-   var calculated_date = full_date.getFullYear()+ "-" + month+ "-"+ full_date.getDate();
+   month = pad(month,2);
+   var calculated_date = full_date.getFullYear()+ "-" + month+ "-"+ pad(full_date.getDate(),2);
    return calculated_date;
 };
 
+
+
+
+pad  = function(num, size) {  //funny, i didn't find a lib to do this. size is the precision value
+    var s = num+"";
+    while (s.length < size) s = "0" + s;
+    return s;
+}
 
 
 
@@ -507,19 +519,23 @@ epg_data_collector.prototype.start_collection = function(mycollector)
     mycollector.db.once('open', function (callback) {
 
       //update date , channel collection fields for clients to know what data to expect.
-      data_overview_model.create(   
-      {
-        	data_provider: "rovi",
-	    	data_start_date: "2015-07-21",    //for production, this should be current date
-        	data_available_days: epg_data_available_days,   //defined above
-         	data_available_channels : "89",   //TODO. update this after collection of all information.
-		data_region             : "US-EST" 
-      },function(err) {
+      data_overview_model.update(                      
+      {	data_provider: "rovi"},
+      { data_start_date: "2015-07-21",    //for production, this should be current date
+      data_available_days: epg_data_available_days,   //defined above
+      data_available_channels: "89",   //TODO. update this after collection of all information.
+      	data_region:"US-EST"  }, 
+      {upsert:true},function(err) {
 		if(err)
         	{
          		if(err.code = 11000)
               		console.log('attempt to insert duplicate entry for data overview');
-         	}   		
+                        else
+	                   console.log('error in updating document.error is '+err);
+         	}
+		else {
+		        console.log('updated overview collection with data gathering date');
+		}	
         });       
 
 	    /*
@@ -551,7 +567,7 @@ epg_data_collector.prototype.start_collection = function(mycollector)
      */
 
      //when channel collection and epg collection is done and tested, lets start updating cast/crew
-      setTimeout(function() { mycollector.update_addon_epg_info(mycollector);},1000*10);  //after 200 seconds
+     // setTimeout(function() { mycollector.update_addon_epg_info(mycollector);},1000*10);  //after 200 seconds
    });
 }
 
@@ -569,10 +585,12 @@ epg_data_collector.prototype.update_collection = function(mycollector)
     mycollector.db.once('open', function (callback) {
   
         //check out, whether we need refresh right now at initialization. 
-	data_overview_model.find({},function(err,data) {
+	data_overview_model.find({},function(err,docs) {
+
+	     var info = docs[0];	
              var todays_date= mycollector.get_date(0);
-	     console.log('database date is '+data.date + 'today date is '+todays_date);
-	     if(todays_date == data.date)
+	     console.log('database date is '+info.data_start_date + ' today date is '+todays_date);
+	     if(todays_date == info.start_date)
 	     {
 		 console.log('epg data is already upto date. no need to refresh now');
 	     }
@@ -597,7 +615,7 @@ epg_data_collector.prototype.update_collection = function(mycollector)
                    
 			     },
                              start: false,
-                             timeZone: 'Asia/Mumbai'
+                             timeZone: 'Asia/Kolkata'
                           });
 
          job.start();
@@ -610,6 +628,7 @@ epg_data_collector.prototype.update_collection = function(mycollector)
 
                  // the function code starts here  
                   get_database_first_date(function(first_date) {
+		      console.log('first date from database is '+first_date);
 		      update_database_dates(first_date);
                  });	  
 
@@ -618,60 +637,110 @@ epg_data_collector.prototype.update_collection = function(mycollector)
   	               var first_date = new Date();
                        data_overview_model.find({},function(err,data) { 
 	                 var overview = data[0]; 
-                         console.log('first date, as per database is '+date);
-	                 var tokens = overview.start_date.split("-");	
+                         console.log('first date, as per database is '+overview.data_start_date);
+	                 var tokens = overview.data_start_date.split("-");	
                          var first_date = new Date();
 	                 first_date.setYear(tokens[0]);
 	                 var month = tokens[1]-1;
 	                 first_date.setMonth(month);
-	                 first_date.setDay(tokens[2]); 
+	                 first_date.setDate(tokens[2]); 
                          callback(first_date);
 	             });	
 	          }	
 
+
+                  function set_database_first_date(first_date,offset)
+		  {
+		      	  
+	             first_date.setDate(first_date.getDate() + offset);		  
+                     var month = first_date.getMonth() + 1;
+		     var new_date = first_date.getFullYear() + "-" +  pad(month,2) + "-" + pad(first_date.getDate(),2);
+                     console.log('so the new date for updated database is '+new_date);
+
+                     data_overview_model.update(   
+				     {data_provider:"rovi"},{data_start_date: new_date},{upsert:true},    
+                     function(err) {
+		                  console.log('##################################updated database starting date########################');
+                     });       
+                  }  
+
+
+
                   function get_offsetted_date(date, offset) //this gets offsetted day in custom format, we used.
 	          {
-                      var offsetted_date = date.setDay(date.getDay()+offset);  //this is ith day in date format.
-                      var month = offsetted_date.getMonth()+1;        
-	              var calculated_date = offsetted_date.getFullYear()+ "-" + month+ "-"+ offsetted_date.getDate();
+                      var new_date = new Date();
+		      
+		      var date_attributes = date.split("-");
+		      new_date.setYear(date_attributes[0]);
+		      var set_month = date_attributes[1]-1;
+		      new_date.setMonth(set_month);
+		      new_date.setDate(parseInt(date_attributes[2])+ offset);
+
+                      var month = new_date.getMonth()+1;        
+		      month = pad(month,2);
+	              var calculated_date = new_date.getFullYear()+ "-" + month+ "-"+ pad(new_date.getDate(),2);
 	              return calculated_date;
 	          }
 
 	          function update_database_dates(first_date)
 	          {
-		       var days_offset = epg_available_days - 1; 
-		       for (var i = days_offset; i>=0; i--)
-                       {
-                           var current_date = get_offsetted_date(first_date,i);
-		           var new_date = mycollector.get_date(i);
-		           console.log('updating database entries with the date '+current_date + 'with new date'+new_date);
-
-		           epg_data_model.find({"date":current_date},function(err,docs) {
-			         console.log('got '+docs.length+ 'entries for the offset '+i+ 'going to update all of them');     
-	                         for(var k =0; k < docs.length;k++) {
-		                      var doc = docs[k]; 
-			              var start_time_tokens = doc.start_time.split("T");
-			              var new_start_time = new_date+'T'+ start_time_tokens[1];
-			              console.log('new start time is '+new_start_time);
+		    
+		      var current_date = new Date();
+	              console.log('database first date is '+first_date + 'current date is '+current_date);
+                      var timeDiff = math.abs(current_date.getTime() - first_date.getTime());
+                      var diffDays = math.floor(timeDiff / (1000 * 3600 * 24));
+		      console.log('diff among dates is '+diffDays); 
 
 
-			              var end_time_tokens = doc.end_time.split("T");
-			              var new_end_time = new_date+'T'+end_time_tokens[1];
-			              console.log('new start time is '+new_start_time);
+                      function update_document_time(program_data,callback)
+		      {
+		              console.log('updating start time '+program_data.new_start_time + ' for program id '+program_data.program_id);
+			      epg_data_model.update({program_id:program_data.program_id},{"start_time":program_data.new_start_time,
+				                                                         "end_time":program_data.new_end_time},{upsert:true},function(err,response) {
+	                     if(err) {
+	                          console.log('error in updating date for programid '+doc.program_id);
+				  callback(err,program_data.program_id);
+                             }
+                         });
+
+			    console.log('done with updating data');  
+		      }
 
 
-				     
-			             epg_data_model.update({"start_time":new_start_time},{"end_time":new_end_time},{upsert:true},function(err,response) {
-	                                 if(err) {
-	                                      console.log('error in updating date for programid '+doc.program_id);
-                                         }
-                                     });
-			        } 
-		           });
-	              }
-                }		 
+     	          //   var queue = async.queue(update_document_time,mycollector.max_db_concurreny);
 
-          }
+		      epg_data_model.find({},function(err,docs) {
+			   console.log('got '+docs.length+ 'entries .update all of them');     
+	                   for(var k =0; k < docs.length;k++) {
+		                 var doc = docs[k];
+			           var start_time_tokens = doc.start_time.split("T");
+			           var updated_date = get_offsetted_date(start_time_tokens[0],diffDays);
+				   var new_start_time = updated_date+'T'+ start_time_tokens[1];
+			           console.log('old start time is '+doc.start_time+ ' new start time is '+new_start_time);
+  		                   var end_time_tokens = doc.end_time.split("T");
+			           var new_end_time = updated_date+'T'+end_time_tokens[1];
+			           console.log('old end time is '+doc.end_time+ ' new end time is '+new_end_time);
+				   var program_data = {new_start_time:new_start_time,new_end_time:new_end_time,program_id:doc.program_id};
+
+				   console.log(' value of start time is '+program_data.new_start_time + 'value of end time is '+program_data.new_end_time);
+				   //TODO. For some reason, queue is not working except for channel. needs debug.
+				    update_document_time(program_data,function(err,program_id) {  
+				   //  queue.push(program_data,function(err,program_id) {
+					if(err) {
+						console.log('error in updating program id '+program_id + ' with new times');
+					}	
+			         });  
+			    }
+			 });
+
+                           //update database first date
+                    //       set_database_first_date(first_date,diffDays);
+                     
+
+
+                      }		 
+
+              }
    });
 }
 
@@ -680,7 +749,7 @@ epg_data_collector.prototype.update_collection = function(mycollector)
 
 var mycollector = new epg_data_collector();
 //mycollector.start_collection();    //call this function , if you want to pull EPG data from ROVI fresh
-mycollector.update_collection();   // call this function, if you want to update your static EPG data to match current dates.
+mycollector.update_collection(mycollector);   // call this function, if you want to update your static EPG data to match current dates.
 
 
 module.exports = epg_data_collector;

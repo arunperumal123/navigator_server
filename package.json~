@@ -15,6 +15,7 @@
     "express": "~4.6.1",
     "method-override": "~1.0.0",
     "mongodb": "^1.4.35",
+    "connect": "1.8.5",
     "mongoose": "^4.0.1",
     "morgan": "~1.1.1",
     "nconf": "latest",
@@ -25,7 +26,10 @@
     "oauth": "~0.9.13",
     "node-twitter": "~0.5.2",
     "twitter": "~1.2.5",
-    "twit": "~1.1.20"
+    "twit": "~1.1.20",
+    "oauth-1.0a":"~0.2.1",
+    "async":"~1.4.0",
+    "cron":"~1.0.9"
   },
     "engines": {
     "node": "0.12.2"
