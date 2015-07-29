@@ -19,7 +19,8 @@ var epg_data_available_days = 14;
 
 epg_data_collector = function()
 {
-  this.dbURL = 'mongodb://localhost:27017/epg_data_collection';
+//  this.dbURL = 'mongodb://localhost:27017/epg_data_collection'; //local database
+  this.dbURL = 'mongodb://arunperumal:rafaelnadal@ds053080.mongolab.com:53080/heroku_85bs2bx5';
   this.date;
   this.db;
   this.chan_pages_read=0;
@@ -518,6 +519,7 @@ epg_data_collector.prototype.start_collection = function(mycollector)
 
     mycollector.db.once('open', function (callback) {
 
+       console.log('EPG collector:start collection: connected to database.');
       //update date , channel collection fields for clients to know what data to expect.
       data_overview_model.update(                      
       {	data_provider: "rovi"},
@@ -584,13 +586,19 @@ epg_data_collector.prototype.update_collection = function(mycollector)
 
     mycollector.db.once('open', function (callback) {
   
+       console.log('EPG collector:update collection: connected to database.');
         //check out, whether we need refresh right now at initialization. 
 	data_overview_model.find({},function(err,docs) {
 
-	     var info = docs[0];	
+	     var info = docs[0];
+             var database_date;	     
              var todays_date= mycollector.get_date(0);
-	     var database_date = info.data_start_date;
-	     console.log('database date is '+info.data_start_date + ' today date is '+todays_date);
+	     if(info)
+	     {
+	        database_date = info.data_start_date;
+	        console.log('database date is '+info.data_start_date + ' today date is '+todays_date);
+	     
+	     }
 	     if(todays_date.localeCompare(database_date) == 0)
 	     {
 		 console.log('epg data is already upto date. no need to refresh now');
@@ -786,12 +794,6 @@ epg_data_collector.prototype.update_collection = function(mycollector)
 }
 
 
-
-
-var mycollector = new epg_data_collector();
-//mycollector.start_collection();    //call this function , if you want to pull EPG data from ROVI fresh
-mycollector.update_collection(mycollector);   // call this function, if you want to update your static EPG data to match current dates.
-
-
-module.exports = epg_data_collector;
+//expose to outside world.
+exports.epg_data_collector = epg_data_collector;
 
