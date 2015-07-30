@@ -7,6 +7,7 @@ var express = require('express'),
 	config = require('./config/config.js'),
     routes = require('./lib/routes/'),
     twitterRouter = require('./lib/routes/tweet.js'),
+    userAuthRouter= require('./lib/routes/user_auth.js'),
     mongoose = require('mongoose'),
 	cors = require('cors'),
 	morgan = require('morgan'),
@@ -118,5 +119,6 @@ app.use('/epg/', validate, routes);
 
 // Call Tweet Router for Twitter messages
 app.use('/tweet/', twitterRouter);
+app.use('/authentication/', userAuthRouter);
 
 module.exports = app;
