@@ -757,7 +757,12 @@ epg_data_collector.prototype.update_collection = function(mycollector)
                       var diffDays = math.floor(timeDiff / (1000 * 3600 * 24));
 		      console.log('diff among dates is '+diffDays); 
 
-		      epg_data_model.find({},function(err,docs) {
+
+                      if(diffDays != 1)
+		      {
+
+
+		        epg_data_model.find({},function(err,docs) {
 			   console.log('got '+docs.length+ 'entries .update all of them');     
 	                   for(var k =0; k < docs.length;k++) {
 		                 var doc = docs[k];
@@ -785,7 +790,12 @@ epg_data_collector.prototype.update_collection = function(mycollector)
                            //update database first date
                            set_database_first_date(first_date,diffDays);
                      
-
+                       }
+		       else  //because heroku dyno sleeps on inactivity (for 1 dyno users), cron job may not hit. This is work around to counter that.
+		       {
+                           console.log('difference between dates is just 1. so better rotate the epg and refresh');
+                           rotate_epg_dates(mycollector);  
+		       }
 
                       }		 
 
