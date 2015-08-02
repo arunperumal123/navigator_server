@@ -1,7 +1,7 @@
 var request = require('request');
 var inspect = require('util').inspect;
 var fs = require('fs');
-var mongoose = require('mongoose')
+var mongoose = require('mongoose');
 var async = require('async');
 var CronJob = require('cron').CronJob;
 
@@ -16,11 +16,8 @@ var epg_data_available_days = 14;
 
 recommender = function()
 {
-  this.dbURL = 'mongodb://localhost:27017/usage_trend_and_reco';
-  this.date;
-  this.db;
-  this.max_db_concurrency=5;
-
+    this.date;
+    this.max_db_concurrency=5;
   this.init_pref_matrix_cron_job();
   this.init_live_recommender_cron_job();
 
@@ -34,7 +31,7 @@ recommender.prototype.init_pref_matrix_cron_job = function()
 
       //setting up periodic timer to refresh the date information   
       var job = new CronJob({
-                     cronTime: '0 */2 * * * *',
+                     cronTime: '*/5 * * * * *',
                       onTick: function() {
                               /*
                                * Runs every 2 mins
@@ -95,14 +92,22 @@ recommender.prototype.update_usage = function(user,usage)
        //called by user to update usage , every 1 hour (production) , lab - 2 mins
        //router should call this function , ONLY after validating , the user is in a Valid session.
        //update usage db
-       
-      users_usage_model.findOne({"users_id":user.user_id},function(err,doc)
+      console.log('let me search for one entry here.coming with id as '+user+ 'do i have model here');
+     var query = { users_id: user}; 
+       users_usage_model.findOneAndUpdate(query,{users_id:user},{upsert:true},function(err,doc)
        {
 	    console.log('got the user id');
-            history_length = doc.viewing_history.length;
+      	    var history_length;
+	    
+	    if(doc.viewing_history) {
+                console.log(' no of entries in usage db as of now is '+doc.viewing_history.length);
+            }
+	    else {
+		   history_length =0;
+	    }
+
 	    for (var i = 0 ; i < usage.length; i++)
 	    {
-		    console.log(' no of entries in usage db as of now is '+doc.viewing_history.length);
 	
 	            var item = { program_id :usage[i].program_id,
                                  viewed_date:usage[i].viewed_date,
@@ -111,10 +116,11 @@ recommender.prototype.update_usage = function(user,usage)
 	                      } 
 	
 	
-		    users_usage_model.findOneAndUpdate({users_id:user_id,viewing_history:item}
+		    users_usage_model.update({users_id:user},{$push:{viewing_history:item}},{upsert:true}
 						                      ,function(err,response) {
+				console.log('saved the entry '+item);
 				if(err) {
-	                            console.log('error in updating the usage');
+	                            console.log('error in updating the usage.error is '+err);
                                 }
                       });
              }		    
@@ -126,10 +132,20 @@ recommender.prototype.update_usage = function(user,usage)
 
 recommender.prototype.update_pref_matrix = function()
 {
-  //create cron job
-  // prune usage history of each user
-  // update pref database in details.
-
+       users_usage_model.find({},function(err,docs)
+       {
+          console.log('no of users needs recommendation badly is '+docs.length);
+            
+	  for (var i =0; i < docs.length; i++)
+	  {
+	       var doc = docs[i];
+               console.log('lets dump their history right now.history length is '+doc.viewing_history.length);
+	       for (var j =0;j<doc.viewing_history.length;j++)
+	        {
+		      console.log('program id of the program watched is '+doc.viewing_history[j].program_id);
+	        }
+          }
+     });       
 };
 
 
@@ -153,8 +169,24 @@ recommender.prototype.trending_now   = function()
 }
 
 
-var myrecommender = new recommender();
+recommender.prototype.test_recommender = function()
+{
+  console.log(' testing the recommender ');
+  var usage = [];
 
+  var element1 = {program_id:"1719998813",viewed_date:"2015-08-02",last_viewed_time:"00:15",duration:600};
+  var element2 = {program_id:"1719998814",viewed_date:"2015-08-02",last_viewed_time:"03:15",duration:1200};
+  var element3 = {program_id:"1752453850",viewed_date:"2015-08-02",last_viewed_time:"02:00",duration:400};
 
-module.exports = recommender;
+  usage.push(element1);
+  usage.push(element2);
+  usage.push(element3);
+
+  this.update_usage("123",usage);
+
+}
+
+//expose to outside world.
+exports.recommender = recommender;
+
 

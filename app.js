@@ -18,6 +18,7 @@ var express = require('express'),
 	app = express();
 
    epg_data_collector = require('./rovi_epg_collector').epg_data_collector;
+   recommender = require('./recommender').recommender;
 
 
 /*
@@ -91,11 +92,15 @@ function start_services()
 
     //set up rovi data collector here.
     var mycollector;
+    var myrecommender;
 
      mycollector = new epg_data_collector();
      //mycollector.start_collection();    //call this function for getting ROVI data. This needs to implement purging. also valid ROVI keys.
      mycollector.update_collection(mycollector);   // call this function, if you want to update your static EPG data to match current dates.
 
+
+     myrecommender = new recommender();
+   //  myrecommender.test_recommender();
 
      // Call the router
      app.use('/', routes);
