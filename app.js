@@ -16,7 +16,7 @@ var express = require('express'),
     debug = require('debug'),
     router = express.Router(),
     methodOverride = require('method-override'),
-	app = express();
+	app = express(),
 
    epg_data_collector = require('./rovi_epg_collector').epg_data_collector;
 
@@ -68,6 +68,48 @@ if (ENV === 'development') {
   });
 }
 
+
+console.log('mongo url is '+config.server.mongoHost);
+mongoose.connect(config.server.mongoHost, {}, function(error, db){
+      if(error) {
+	      console.log('error in connecting to db - error '+error);
+      }
+      else {
+	     console.log('got connection index.lets await opening of db'); 
+     }});		
+
+     var db = mongoose.connection;
+
+     db.once('open',function()  { 
+        start_services();
+     });
+
+function start_services()
+{
+      var db = config.server.DB;
+      console.log('calling start services with db instance as '+db);
+	        console.log('connected to database');    
+
+    //set up rovi data collector here.
+    var mycollector;
+
+     mycollector = new epg_data_collector();
+     //mycollector.start_collection();    //call this function for getting ROVI data. This needs to implement purging. also valid ROVI keys.
+     mycollector.update_collection(mycollector);   // call this function, if you want to update your static EPG data to match current dates.
+
+
+     // Call the router
+     app.use('/', routes);
+
+    // Call the Router
+    app.use('/epg/', validate, routes);
+
+    // Call Tweet Router for Twitter messages
+    app.use('/tweet/', twitterRouter);
+
+}
+
+
 // Production error handler no stacktraces leaked to user
 app.use(function(err, req, res, next) {
   res.status(err.status || 500);
@@ -96,6 +138,7 @@ function validate (req, res, next) {
 }
 
 
+
 //set up rovi data collector here.
 var mycollector;
 mycollector = new epg_data_collector();
@@ -120,5 +163,6 @@ app.use('/epg/', validate, routes);
 // Call Tweet Router for Twitter messages
 app.use('/tweet/', twitterRouter);
 app.use('/authentication/', userAuthRouter);
+
 
 module.exports = app;

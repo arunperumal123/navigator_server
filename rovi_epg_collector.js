@@ -8,6 +8,9 @@ var CronJob = require('cron').CronJob;
 var math = require('mathjs');
 
 
+var config      = require('./config/config.js');
+
+
 
 var epg_data_model = require('./lib/models/epg_data_collection_model.js');
 var channel_data_model = require('./lib/models/channel_data_collection_model.js');
@@ -19,17 +22,14 @@ var epg_data_available_days = 14;
 
 epg_data_collector = function()
 {
-//  this.dbURL = 'mongodb://localhost:27017/epg_data_collection'; //local database
-  this.dbURL = 'mongodb://arunperumal:rafaelnadal@ds053080.mongolab.com:53080/heroku_85bs2bx5';
   this.date;
-  this.db;
   this.chan_pages_read=0;
   this.max_db_concurrency=5;
   this.oauth = OAuth({
     consumer: {
 //	public: 'd46034891f895b9c0ea374ffb1d6198f8bda45fbf1d8e909c675018f58232b98', //arun's key
 //        secret: 'ff36ecaaf4e630c94279d6ac9294e94acc8139d77189bcb32070aed4b203b7f1'
-	    public: '058128a8b1caaf7fe352651e474697fe724795991b08e31338e4aedd0d4beee8',
+	    public: '058128a8b1caaf7fe352651e474697fe724795991b08e31338e4aedd0d4beee8',   //Nishanth's key
 	    secret: 'cdc8642287040943359543ffcd6fd7094c549584486b6cc7d638c39340b95de0' 
        },
        signature_method: 'HMAC-SHA1'
@@ -69,16 +69,10 @@ pad  = function(num, size) {  //funny, i didn't find a lib to do this. size is t
 
 epg_data_collector.prototype.dump_channel_data_to_db  = function(epg_collector,channel_data_done)
 {
-  mongoose.connect(this.dbURL);
-  this.db = mongoose.connection;
-  this.db.on('error', console.error.bind(console, 'mongodb connection error:'));
 
   var epg_collector = epg_collector; //get a local copy, as it is useful to access in callback context.
   var channel_data_done = channel_data_done;
 
-  this.db.once('open', function (callback) {
-        console.log('hey. mongoose mandayan is open');
-        console.log('total no. of channels blocks are  '+epg_collector.channel_data_output.length);
                   	  
         function dump_channel_element_to_db(channel_element,callback)
     	{
@@ -130,7 +124,6 @@ epg_data_collector.prototype.dump_channel_data_to_db  = function(epg_collector,c
                 	});
            	} 		 
       	}
-    });
 };
 
 
@@ -511,13 +504,8 @@ epg_data_collector.prototype.start_collection = function(mycollector)
 {
    var mycollector = this;
     
-    mongoose.connect(mycollector.dbURL);
-    mycollector.db = mongoose.connection;
-    mycollector.db.on('error', console.error.bind(console, 'mongodb connection error:'));
 
     console.log('Initiating EPG data collection');
-
-    mycollector.db.once('open', function (callback) {
 
        console.log('EPG collector:start collection: connected to database.');
       //update date , channel collection fields for clients to know what data to expect.
@@ -570,7 +558,6 @@ epg_data_collector.prototype.start_collection = function(mycollector)
 
      //when channel collection and epg collection is done and tested, lets start updating cast/crew
      // setTimeout(function() { mycollector.update_addon_epg_info(mycollector);},1000*10);  //after 200 seconds
-   });
 }
 
 
@@ -578,14 +565,8 @@ epg_data_collector.prototype.start_collection = function(mycollector)
 epg_data_collector.prototype.update_collection = function(mycollector)
 {
 
-    mongoose.connect(mycollector.dbURL);
-    mycollector.db = mongoose.connection;
-    mycollector.db.on('error', console.error.bind(console, 'mongodb connection error:'));
-
     console.log('Initiating EPG data refresh');
 
-    mycollector.db.once('open', function (callback) {
-  
        console.log('EPG collector:update collection: connected to database.');
         //check out, whether we need refresh right now at initialization. 
 	data_overview_model.find({},function(err,docs) {
@@ -800,7 +781,6 @@ epg_data_collector.prototype.update_collection = function(mycollector)
                       }		 
 
               }
-   });
 }
 
 
