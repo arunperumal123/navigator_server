@@ -9,6 +9,7 @@ var CronJob = require('cron').CronJob;
 var live_recos_model = require('./lib/models/reco_live_recos_model');
 var users_pref_profile_model = require('./lib/models/reco_users_pref_profile_model');
 var users_usage_model = require('./lib/models/reco_users_usage_model');
+var epg_index_model = require('./lib/models/index');
 
 var epg_data_available_days = 14;
 
@@ -128,10 +129,18 @@ recommender.prototype.update_usage = function(user,usage)
 
 }
 
+recommender.prototype.search = function include(arr, obj) {
+    for(var i=0; i<arr.length; i++) {
+        if (arr[i].name == obj) return i;
+    }
+    return -1;
+}
+
 
 
 recommender.prototype.update_pref_matrix = function()
 {
+       var self = this;	
        users_usage_model.find({},function(err,docs)
        {
           console.log('no of users needs recommendation badly is '+docs.length);
@@ -139,14 +148,75 @@ recommender.prototype.update_pref_matrix = function()
 	  for (var i =0; i < docs.length; i++)
 	  {
 	       var doc = docs[i];
+	       var usage_users_id = doc.users_id;	  
                console.log('lets dump their history right now.history length is '+doc.viewing_history.length);
 	       for (var j =0;j<doc.viewing_history.length;j++)
 	        {
 		      console.log('program id of the program watched is '+doc.viewing_history[j].program_id);
-	        }
-          }
-     });       
-};
+                      epg_index_model.getProgramInfo(null,doc.viewing_history[j].program_id,function(doc) {
+			      console.log('got the info on program'+doc);
+			      if(doc) {
+				      var cast_info = doc.cast.split(",");
+				      var director_info = doc.director;
+				      var genre_info = doc.genre;
+				      var title_info = doc.title.split(" ");
+
+                                      var cast = null;
+				      var genre;
+				      var director;
+				      var title;
+
+
+                                      users_pref_profile_model.findOne( {users_id:usage_users_id},{upsert:true,new:true}
+						                      ,function(err,doc) {
+				           console.log('got the entry '+doc);
+                                           var index;
+					   var cast_uid;
+
+                                           if(cast_info[0]) {
+					        cast = {name:cast_info[0],cast_index:3};
+					   } 
+						
+					    if(doc) {
+						 console.log('the cast name is '+cast_info[0]);  
+                                               users_id = doc.users_id;  
+                                               if(doc.cast) {
+					           index =  self.search(doc.cast,cast_info[0]);
+		                                   if(index != -1) {
+			                              cast.cast_index = doc.cast[index].cast_index + 3;
+		                                   }
+	                                           else {
+		                                       cast.name = cast_info[0];
+	                                               cast.cast_index = 3;
+	                                           }
+				                }
+					        else {
+                                                   cast.name = cast_info[0];
+	                                           cast.cast_index = 3;
+                                                 }
+				             }
+					     else {
+                                                 cast.name = cast_info[0]; 
+                                                 cast.cast_index =3;
+					     }
+					     
+					    if(cast) { 
+                                               console.log('just before pushing. cast name is '+cast.name+ 'cast index is '+cast.cast_index); 
+					     users_pref_profile_model.update( {"cast.name":cast_info[0]},{"cast.name":cast_info[0],"cast.cast_index":cast.cast_index},{upsert:true}
+						                      ,function(err,doc) {
+                                                            if(err) {
+								    console.log('error in updating pref profile '+err);
+						            }		    
+                                              });    
+					    }
+
+  	                             });
+                              }
+                       });       
+                }
+            }
+        });
+}
 
 
 recommender.prototype.refresh_recommendations = function()
