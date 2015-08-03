@@ -7,6 +7,7 @@ var express = require('express'),
 	config = require('./config/config.js'),
     routes = require('./lib/routes/'),
     twitterRouter = require('./lib/routes/tweet.js'),
+    userAuthRouter= require('./lib/routes/user_auth.js'),
     mongoose = require('mongoose'),
 	cors = require('cors'),
 	morgan = require('morgan'),
@@ -15,7 +16,7 @@ var express = require('express'),
     debug = require('debug'),
     router = express.Router(),
     methodOverride = require('method-override'),
-	app = express();
+	app = express(),
 
    epg_data_collector = require('./rovi_epg_collector').epg_data_collector;
 
@@ -135,5 +136,33 @@ function validate (req, res, next) {
 
     next();
 }
+
+
+
+//set up rovi data collector here.
+var mycollector;
+mycollector = new epg_data_collector();
+//mycollector.start_collection();    //call this function for getting ROVI data. This needs to implement purging. also valid ROVI keys.
+mycollector.update_collection(mycollector);   // call this function, if you want to update your static EPG data to match current dates.
+
+
+
+
+
+// Set a stream listener for tweets matching tracking keywords
+/*twit.stream('statuses/filter', { track: 'scotch_io, #scotchio'}, function (stream) {
+    streamHandler(stream);
+});*/
+
+// Call the router
+app.use('/', routes);
+
+// Call the Router
+app.use('/epg/', validate, routes);
+
+// Call Tweet Router for Twitter messages
+app.use('/tweet/', twitterRouter);
+app.use('/authentication/', userAuthRouter);
+
 
 module.exports = app;
