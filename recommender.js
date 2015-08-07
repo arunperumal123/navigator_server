@@ -142,55 +142,65 @@ recommender.prototype.search = function include(arr, obj) {
 recommender.prototype.update_pref_matrix = function()
 {
        var self = this;	
-       users_usage_model.find({},function(err,docs)
+       users_usage_model.find({},function(err,usage_docs)
        {
-          console.log('no of users needs recommendation badly is '+docs.length);
+          console.log('no of users needs recommendation badly is '+usage_docs.length);
             
-	  for (var i =0; i < docs.length; i++)
+	  for (var i =0; i < usage_docs.length; i++)
 	  {
-	       var doc = docs[i];
-	       var usage_users_id = doc.users_id;	  
-               console.log('lets dump their history right now.history length is '+doc.viewing_history.length);
-	       for (var j =0;j<doc.viewing_history.length;j++)
-	        {
-		      console.log('program id of the program watched is '+doc.viewing_history[j].program_id);
-                      epg_index_model.getProgramInfo(null,doc.viewing_history[j].program_id,function(doc) {
-		   	      var cast_insert_position=0;
-			      if(doc) {
-				      var cast_info = doc.cast.split(",");
-				      var director_info = doc.director;
-				      var genre_info = doc.genre;
-				      var title_info = doc.title.split(" ");
+	       var user_usage_doc = usage_docs[i];
+	       var user_usage_id = user_usage_doc.users_id;	  
+          
+	               console.log('lets dump their history right now.history length is '+user_usage_doc.viewing_history.length);
+	             for (var j =0;j<user_usage_doc.viewing_history.length;j++)
+	              {
+		              console.log('program id of the program watched is '+user_usage_doc.viewing_history[j].program_id);
+                               epg_index_model.getProgramInfo(null,user_usage_doc.viewing_history[j].program_id,function(program_doc) {
+		 	                
+				       
+				       
+                                      users_pref_profile_model.findOneAndUpdate( {users_id:user_usage_id},{users_id:user_usage_id},{upsert:true,new:true}
+						                      ,function(err,pref_profile_doc) {
+				       
+				                 if(program_doc) {
+				                    var cast_info = program_doc.cast.split(",");
+				                    var director_info = program_doc.director;
+				                    var genre_info =    program_doc.genre;
+				                    var title_info = program_doc.title.split(" ");
 
 
-                                      users_pref_profile_model.findOneAndUpdate( {users_id:usage_users_id},{users_id:usage_users_id},{upsert:true,new:true}
-						                      ,function(err,doc) {
-				           console.log('got the entry '+doc);
-                                           var index;
+						    /*************update cast data *********************/
+                                                    
+						    
 
-						 console.log('the cast name is '+cast_info[0]);  
-                                                 if(doc.cast) {
-					             index =  self.search(doc.cast,cast_info[0]);
-		                                     if(index != -1) {
-			                                   mycast.cast_index = doc.cast[index].cast_index + 3;
-						           doc.cast[index].cast_index += 3;
-		                                      }
-	                                              else {
-		                                          doc.cast.push({name:cast_info[0],cast_index:3});
-	                                               }
+                                                    var index;
+						    console.log('as of now, the doc looks as '+pref_profile_doc);
+					//	   console.log('the cast name is '+cast_info[0]);  
+                                                 
+						    if(pref_profile_doc.cast) {
+					                 index =  self.search(pref_profile_doc.cast,cast_info[0]);
+		                                         if(index != -1) {
+								 console.log('existing entry.updating existing stuff '+cast_info[0]);
+						           pref_profile_doc.cast[index].cast_index += 3;
+		                                         }
+	                                                 else {
+						          console.log('no existing entry.updating adding stuff '+cast_info[0]);
+		                                            pref_profile_doc.cast.push({name:cast_info[0],cast_index:3});
+	                                                 }
 				                    }
 					            else {
-		                                       doc.cast.push({name:cast_info[0],cast_index:3});
+							    console.log('pushing first cash entry with name'+cast_info[0]);
+		                                       pref_profile_doc.cast.push({name:cast_info[0],cast_index:3});
                                                      }
 					            
-				                     doc.save();
+				                     pref_profile_doc.save();
 
 
-  	                             });
-                              }
-                       });       
-                }
-            }
+                                                  }
+  	                                });
+                                 });       
+                        }
+              }
         });
 }
 
