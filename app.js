@@ -16,10 +16,10 @@ var express = require('express'),
     debug = require('debug'),
     router = express.Router(),
     methodOverride = require('method-override'),
-	app = express(),
+	app = express();
 
-   epg_data_collector = require('./rovi_epg_collector').epg_data_collector;
-   recommender = require('./recommender').recommender;
+//    epg_data_collector = require('./rovi_epg_collector').epg_data_collector;
+   recommender = require('./nc').recommender;
 
 
 /*
@@ -95,9 +95,9 @@ function start_services()
     var mycollector;
     var myrecommender;
 
-     mycollector = new epg_data_collector();
+//     mycollector = new epg_data_collector();
      //mycollector.start_collection();    //call this function for getting ROVI data. This needs to implement purging. also valid ROVI keys.
-     mycollector.update_collection(mycollector);   // call this function, if you want to update your static EPG data to match current dates.
+     //mycollector.update_collection(mycollector);   // call this function, if you want to update your static EPG data to match current dates.
 
 
      myrecommender = new recommender();
@@ -146,9 +146,9 @@ function validate (req, res, next) {
 
 //set up rovi data collector here.
 var mycollector;
-mycollector = new epg_data_collector();
+//mycollector = new epg_data_collector();
 //mycollector.start_collection();    //call this function for getting ROVI data. This needs to implement purging. also valid ROVI keys.
-mycollector.update_collection(mycollector);   // call this function, if you want to update your static EPG data to match current dates.
+//mycollector.update_collection(mycollector);   // call this function, if you want to update your static EPG data to match current dates.
 
 
 
