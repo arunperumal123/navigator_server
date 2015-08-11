@@ -130,7 +130,8 @@ recommender.prototype.update_usage = function(user,usage)
 }
 
 recommender.prototype.search = function include(arr, obj) {
-    for(var i=0; i<arr.length; i++) {
+	var len = arr.length
+    for(var i=0; i<len; i++) {
         if (arr[i].name == obj)
 	       	return i;
     }

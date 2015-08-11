@@ -293,20 +293,20 @@ console.log("xxxxxxx");
 }
 
 
-recommender.prototype.refresh_recommendations = function()
+recommender.prototype.refresh_recommendations = function(username)
 {
-
-		console.log("refresh_recommendations");
+	username = "nc";//for testing
+	console.log("refresh_recommendations");
 	var recItems = new Array();
     var that = this;
-	users_pref_profile_model.findOne({users_id:'nc'},function(err, usage_docs) {
+	users_pref_profile_model.findOne({users_id:username},function(err, usage_docs) {
 		//console.log("cast="+usage_docs.cast);
 
 
 			//console.log("genre="+usage_docs.genre);
 			//console.log("director="+usage_docs.director);
 			//console.log("title_words="+usage_docs.title_words);
-		epg_index_model.findSimilarPrograms(null, "empire", function(program_doc) {
+		epg_index_model.findSimilarPrograms(null, "empire", function(program_doc) { // replace with actualquery
 		
 			var len = program_doc.length;
 			len = (len>8)? 8: len;
@@ -358,19 +358,32 @@ recommender.prototype.refresh_recommendations = function()
 					console.log("director ="+director+"="+index);
 				}				
 				
-				
-				
-				item.pref= pref;
-				recItems.push(item);
-				
+				if(pref >0 ){
+					item.pref= pref;
+					recItems.push(item);				
+				}
 				console.log("===============================================================");
-				
-				
 			}
 			console.log("program_doc 111 ");
 			console.log(program_doc.length);
-		console.log("recItems =qq"+ recItems);	
+			console.log("recItems =qq"+ recItems);	
+			console.log("Sorted recItems ="+ recItems);	
+							console.log("===============================================================");
+				console.log("===============================================================");
+
+			for(var p=0;p<recItems.length;p++){
+				console.log(recItems[p]);
+			}
+			recItems.sort(that.sortByPreferenceDesc);
 			
+							console.log("===============================================================");
+				console.log("===============================================================");
+
+			for(var p=0;p<recItems.length;p++){
+				console.log(recItems[p]);
+			}			
+			console.log("Sorted recItems ="+ recItems);	
+			//write query to insert to reco db
 		});
 			
 	});
@@ -381,8 +394,12 @@ recommender.prototype.refresh_recommendations = function()
 	//calculate pref value for each program for each user.
 	//update top 5 for each users.
 }
+// a and b are object elements of your array
 
-
+recommender.prototype.sortByPreferenceDesc   = function(item1, item2)
+{
+  return parseInt(item2.pref, 10) - parseInt(item1.pref, 10);	
+}
 recommender.prototype.trending_now   = function()
 {
 
