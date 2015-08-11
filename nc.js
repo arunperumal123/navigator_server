@@ -297,7 +297,7 @@ recommender.prototype.refresh_recommendations = function()
 {
 
 		console.log("refresh_recommendations");
-
+	var recItems = new Array();
     var that = this;
 	users_pref_profile_model.findOne({users_id:'nc'},function(err, usage_docs) {
 		//console.log("cast="+usage_docs.cast);
@@ -315,25 +315,63 @@ recommender.prototype.refresh_recommendations = function()
 				var pref = 0;
 				console.log("===============================================================");
 
-				var title = (item.title)?item.title.split(" "): new Array();;
+				var title = (item.title)?item.title.split(" "): new Array();
 				var cast = (item.cast)? item.cast.split(","): new Array();
 				var genre = item.genre;
-				var genre = item.director;
+				var director = item.director;
 				console.log("item.cast="+cast);
 				for (var z=0; z < cast.length; z++) {
 					index =  that.search(usage_docs.cast, cast[z]);
 					if(index!=-1) {
-					    pref += parseInt(usage_docs.cast.pref_index,10);	
+					    pref += parseInt(usage_docs.cast[index].pref_index,10);	
 					}
 					console.log("cast ="+cast[z]+"="+index);
 				}
-				console.log("pref="+pref);
+				
+				console.log("pref after cast="+pref);
+				for (var z=0; z < title.length; z++) {
+					index =  that.search(usage_docs.title_words, title[z]);
+					if(index!=-1) {
+						console.log(usage_docs.title_words[index]);
+					    pref += parseInt(usage_docs.title_words[index].pref_index,10);	
+					}
+					console.log("title ="+title[z]+"="+index);
+				}
+				console.log("pref aftertitle="+pref);
+
+				if(genre) {
+					index =  that.search(usage_docs.genre, title[z]);
+					if(index!=-1) {
+   						console.log(usage_docs.genre[index]);
+					    pref += parseInt(usage_docs.genre[index].pref_index,10);	
+					}
+					console.log("genre ="+genre+"="+index);
+				}
+				console.log("pref after genre="+pref);
+
+				if(director) {
+					index =  that.search(usage_docs.director, title[z]);
+					if(index!=-1) {
+   						console.log(usage_docs.director[index]);
+					    pref += parseInt(usage_docs.director[index].pref_index,10);	
+					}
+					console.log("director ="+director+"="+index);
+				}				
+				
+				
+				
+				item.pref= pref;
+				recItems.push(item);
+				
 				console.log("===============================================================");
+				
+				
 			}
-			console.log("program_doc ");
+			console.log("program_doc 111 ");
 			console.log(program_doc.length);
-		});
+		console.log("recItems =qq"+ recItems);	
 			
+		});
 			
 	});
 
