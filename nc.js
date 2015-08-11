@@ -298,41 +298,46 @@ recommender.prototype.refresh_recommendations = function()
 
 		console.log("refresh_recommendations");
 
-   epg_index_model.findSimilarPrograms(null, "empire", function(program_doc) {
+    var that = this;
+	users_pref_profile_model.findOne({users_id:'nc'},function(err, usage_docs) {
+		//console.log("cast="+usage_docs.cast);
+
+
+			//console.log("genre="+usage_docs.genre);
+			//console.log("director="+usage_docs.director);
+			//console.log("title_words="+usage_docs.title_words);
+		epg_index_model.findSimilarPrograms(null, "empire", function(program_doc) {
 		
-		var len = program_doc.length;
-		len = (len>8)? 8: len;
-		for(var i=0;i<len;i++) {
-			var item = program_doc[i];
-			var pref = 0;
-			console.log("===============================================================");
+			var len = program_doc.length;
+			len = (len>8)? 8: len;
+			for(var i=0;i<len;i++) {
+				var item = program_doc[i];
+				var pref = 0;
+				console.log("===============================================================");
 
-			var title = (item.title)?item.title.split(" "): new Array();;
-			var cast = (item.cast)? item.cast.split(","): new Array();
-			var genre = item.genre;
-			var genre = item.director;
-			console.log("item.cast="+cast);
-			
-			users_pref_profile_model.findOne({users_id:'nc'},function(err,usage_docs) {
-				//console.log("cast="+usage_docs.cast);
-				console.log("got answe");
+				var title = (item.title)?item.title.split(" "): new Array();;
+				var cast = (item.cast)? item.cast.split(","): new Array();
+				var genre = item.genre;
+				var genre = item.director;
+				console.log("item.cast="+cast);
 				for (var z=0; z < cast.length; z++) {
-					index =  self.search(usage_docs.cast, cast[z]);
-					 console.log("cast ="+cast[z]+"="+index);
-					
+					index =  that.search(usage_docs.cast, cast[z]);
+					if(index!=-1) {
+					    pref += parseInt(usage_docs.cast.pref_index,10);	
+					}
+					console.log("cast ="+cast[z]+"="+index);
 				}
-
-				//console.log("genre="+usage_docs.genre);
-				//console.log("director="+usage_docs.director);
-				//console.log("title_words="+usage_docs.title_words);
+				console.log("pref="+pref);
+				console.log("===============================================================");
+			}
+			console.log("program_doc ");
+			console.log(program_doc.length);
+		});
 			
-			});
-			console.log("===============================================================");
-		}
-		console.log("program_doc ");
-		console.log(program_doc.length);
-   
-   });
+			
+	});
+
+
 	//create cron job
 	//refresh recommendations periodically /production - 1 hour. lab - 5 mins
 	//calculate pref value for each program for each user.
