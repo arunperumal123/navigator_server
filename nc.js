@@ -24,11 +24,11 @@ console.log("777");
 var epg_index_model = require('./lib/models/index');
 console.log("888");
 
+
 var epg_data_available_days = 14;
 console.log("999");
 
 console.log("last");
-
 
 recommender = function()
 {
@@ -162,7 +162,6 @@ console.log("xxxxxxx");
        var self = this;	
        users_usage_model.find({},function(err,usage_docs)
        {
-	   console.log("ccccccccc");
           console.log('no of users needs recommendation badly is '+usage_docs.length);
             
 	  for (var i =0; i < usage_docs.length; i++)
@@ -309,7 +308,6 @@ recommender.prototype.refresh_recommendations = function(username)
 		epg_index_model.findSimilarPrograms(null, "empire", function(program_doc) { // replace with actualquery
 		
 			var len = program_doc.length;
-			len = (len>8)? 8: len;
 			for(var i=0;i<len;i++) {
 				var item = program_doc[i];
 				var pref = 0;
@@ -359,7 +357,7 @@ recommender.prototype.refresh_recommendations = function(username)
 				}				
 				
 				if(pref >0 ){
-					item.pref= pref;
+					item.preference= pref;
 					recItems.push(item);				
 				}
 				console.log("===============================================================");
@@ -379,10 +377,34 @@ recommender.prototype.refresh_recommendations = function(username)
 							console.log("===============================================================");
 				console.log("===============================================================");
 
-			for(var p=0;p<recItems.length;p++){
-				console.log(recItems[p]);
-			}			
+			//for(var p=0;p<recItems.length;p++){
+				//console.log(recItems[p]);
+			//}			
 			console.log("Sorted recItems ="+ recItems);	
+			
+			
+			live_recos_model.findOneAndUpdate( {users_id:username},{users_id:username},{upsert:true,new:true}
+						                      ,function(err, live_reco_doc) {									  
+											  console.log(live_reco_doc);
+											  /*
+											  for(var q=0;q<recItems.length;q++) {
+											  console.log(recItems[q]);
+												live_recos_model.update({users_id:username},{$push:{reco_programs:recItems[q]}},{upsert:true}
+						                      ,function(err,response) {
+											  console.log("ERROR="+err);
+											  											  console.log("response="+response);
+
+											  });
+											  }*/
+									
+			                                               //live_reco_doc.push(recItems);
+															//live_reco_doc.save();
+											  
+											  });
+											  
+											  				   		    
+			//
+			
 			//write query to insert to reco db
 		});
 			
@@ -398,7 +420,7 @@ recommender.prototype.refresh_recommendations = function(username)
 
 recommender.prototype.sortByPreferenceDesc   = function(item1, item2)
 {
-  return parseInt(item2.pref, 10) - parseInt(item1.pref, 10);	
+  return parseInt(item2.preference, 10) - parseInt(item1.preference, 10);	
 }
 recommender.prototype.trending_now   = function()
 {
