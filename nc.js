@@ -386,16 +386,29 @@ recommender.prototype.refresh_recommendations = function(username)
 			live_recos_model.findOneAndUpdate( {users_id:username},{users_id:username},{upsert:true,new:true}
 						                      ,function(err, live_reco_doc) {									  
 											  console.log(live_reco_doc);
-											  /*
+											  
 											  for(var q=0;q<recItems.length;q++) {
 											  console.log(recItems[q]);
+												/*var itemObj = {};
+												itemObj.program_id = recItems[q].program_id;
+												itemObj.genre = recItems[q].genre;
+												itemObj.title = recItems[q].title;
+												itemObj.start_time = recItems[q].start_time;
+												itemObj.end_time = recItems[q].end_time;
+												itemObj.audio_type = recItems[q].audio_type;
+												
+												itemObj.channel_index = recItems[q].channel_index;
+												itemObj.cast = recItems[q].cast;
+												itemObj.director = recItems[q].director;
+												itemObj.synopsis = recItems[q].synopsis;
+												itemObj.preference = recItems[q].preference;*/
 												live_recos_model.update({users_id:username},{$push:{reco_programs:recItems[q]}},{upsert:true}
 						                      ,function(err,response) {
 											  console.log("ERROR="+err);
 											  											  console.log("response="+response);
 
 											  });
-											  }*/
+											  }
 									
 			                                               //live_reco_doc.push(recItems);
 															//live_reco_doc.save();
