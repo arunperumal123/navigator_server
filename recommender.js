@@ -151,121 +151,151 @@ recommender.prototype.update_pref_matrix = function()
 	       var user_usage_doc = usage_docs[i];
 	       var user_usage_id = user_usage_doc.users_id;	  
           
-	               console.log('lets dump their history right now.history length is '+user_usage_doc.viewing_history.length);
-	             for (var j =0;j<user_usage_doc.viewing_history.length;j++)
-	              {
-		              console.log('program id of the program watched is '+user_usage_doc.viewing_history[j].program_id);
-                               epg_index_model.getProgramInfo(null,user_usage_doc.viewing_history[j].program_id,function(program_doc) {
-		 	                
-				       
-                                      users_pref_profile_model.findOneAndUpdate( {users_id:user_usage_id},{users_id:user_usage_id},{upsert:true,new:true}
+	           //for every user, first get the current preference indiex
+                   users_pref_profile_model.findOneAndUpdate( {users_id:user_usage_id},{users_id:user_usage_id},{upsert:true,new:true}
 						                      ,function(err,pref_profile_doc) {
-				       
+	             
+
+			      function update_pref_matrix_per_usage_entry(usage_details,callback)         
+	                      {
+                                      console.log('program id of the usage requested for update is '+usage_details.program_id);
+			               epg_index_model.getProgramInfo(null,usage_details.program_id,function(program_doc) {
+		 	                
 				                 if(program_doc) {
-				                    var cast_info = program_doc.cast.split(",");
-				                    var director_info = program_doc.director;
-				                    var genre_info =    program_doc.genre;
-				                    var title_info = program_doc.title.split(" ");
+				                      var cast_info = program_doc.cast.split(",");
+				                      var director_info = program_doc.director;
+				                      var genre_info =    program_doc.genre;
+				                      var title_info = program_doc.title.split(" ");
 
-                                                    console.log('doc value is '+user_usage_doc);
-						    console.log('j value is '+j);
-						    var preference_bump =3; //TODO. We got to calculate bump value as duration/constant. However, current code is asynchronous and it makes passing duration as a problem. Each sub module needs to be modularized and duration attribute has to be passed as param to maintain that. 
-                                                    var index;
+						      var preference_bump =usage_details.duration/20; //one point per every 20 secs watch 
+                                                       var index;
 
-						    console.log('as of now, the doc looks as '+pref_profile_doc);
-						    /*************update cast data *********************/
-                                                    
-						   for (var k =0; k<cast_info.length;k++)
-					           { 
+			                               console.log('&&&&&&&&&&&&&&&&start the doc looks as '+pref_profile_doc);
+                              
+                                                      if(cast_info)
+						         update_cast_pref_matrix();
+						       if(director_info)
+                                                           update_director_pref_matrix();
+                                                       if(genre_info)
+				                            update_genre_pref_matrix();
+                                                        if(title_info)
+				                            update_title_pref_matrix();
+						    
+						     	pref_profile_doc.save(function(err){
+							       callback(err);
+							}); 
+						        
+						       console.log('&&&&&&&&&&&&&&&&end the doc looks as '+pref_profile_doc);
+  
 
-						        if(pref_profile_doc.cast) {
-					                     index =  self.search(pref_profile_doc.cast,cast_info[k]);
-		                                             if(index != -1) {
-							 	 console.log('existing cast entry.updating existing stuff '+cast_info[k]);
-						                 pref_profile_doc.cast[index].pref_index += preference_bump;
-		                                             }
-	                                                     else {
-						                console.log('no existing cast entry.adding stuff '+cast_info[k]);
-		                                                pref_profile_doc.cast.push({name:cast_info[k],pref_index:preference_bump});
-	                                                     }
-				                         }
-					                 else {
-							     console.log('pushing first cast entry with name'+cast_info[k]);
-		                                             pref_profile_doc.cast.push({name:cast_info[k],pref_index:preference_bump});
-                                                         }
-						   }
-                                                   /************ end of cast update *********************/
-                
+                                                       function update_cast_pref_matrix()
+						       {
+          
+						           for (var k =0; k<cast_info.length;k++)
+					                   { 
+ 
+						                if(pref_profile_doc.cast) {
+					                            index =  self.search(pref_profile_doc.cast,cast_info[k]);
+		                                                    if(index != -1) {
+							 	      console.log('existing cast entry.updating existing stuff '+cast_info[k]);
+						                      pref_profile_doc.cast[index].pref_index += preference_bump;
+		                                                    }
+	                                                           else {
+						                      console.log('no existing cast entry.adding stuff '+cast_info[k]);
+		                                                      pref_profile_doc.cast.push({name:cast_info[k],pref_index:preference_bump});
+	                                                          }
+				                               }
+					                       else {
+							           console.log('pushing first cast entry with name'+cast_info[k]);
+		                                                   pref_profile_doc.cast.push({name:cast_info[k],pref_index:preference_bump});
+                                                               }
+						            }
+						       }
 
-						    /*************update director data *********************/
-                                                    
-						        if(pref_profile_doc.director) {
-					                     index =  self.search(pref_profile_doc.director,director_info);
-		                                             if(index != -1) {
-							 	 console.log('existing director entry.updating existing stuff '+director_info);
-						                 pref_profile_doc.director[index].pref_index += preference_bump;
-		                                             }
-	                                                     else {
-						                console.log('no existing director entry.adding stuff '+director_info);
-		                                                pref_profile_doc.director.push({name:director_info,pref_index:preference_bump});
-	                                                     }
-				                         }
-					                 else {
-							     console.log('pushing first director entry with name'+director_info);
-		                                             pref_profile_doc.director.push({name:director_info,pref_index:preference_bump});
-                                                         }
-                                                   /************ end of director update *********************/
+                                                       function update_director_pref_matrix()
+						       { 
+						            if(pref_profile_doc.director) {
+					                        index =  self.search(pref_profile_doc.director,director_info);
+		                                                if(index != -1) {
+							   	     console.log('existing director entry.updating existing stuff '+director_info);
+						                      pref_profile_doc.director[index].pref_index += preference_bump;
+		                                                }
+	                                                        else {
+						                   console.log('no existing director entry.adding stuff '+director_info);
+		                                                   pref_profile_doc.director.push({name:director_info,pref_index:preference_bump});
+	                                                        }
+				                             }
+					                     else {
+							         console.log('pushing first director entry with name'+director_info);
+		                                                 pref_profile_doc.director.push({name:director_info,pref_index:preference_bump});
+                                                             }
+                                                        }
+
+                                                   
+                                                       
+                                                       function update_genre_pref_matrix()
+						       { 
+						            if(pref_profile_doc.genre) {
+					                        index =  self.search(pref_profile_doc.genre,genre_info);
+		                                                if(index != -1) {
+							 	     console.log('existing genre entry.updating existing stuff '+genre_info);
+						                     pref_profile_doc.genre[index].pref_index += preference_bump;
+		                                                }
+	                                                        else {
+						                    console.log('no existing genre entry. adding stuff '+genre_info);
+		                                                    pref_profile_doc.genre.push({name:genre_info,pref_index:preference_bump});
+	                                                        }
+				                              }
+					                      else {
+							         console.log('pushing first gnere entry with name'+genre_info);
+		                                                 pref_profile_doc.genre.push({name:genre_info,pref_index:preference_bump});
+                                                              }
+						       }    
+                                                   
 
 
-						    /*************update genre data *********************/
-                                                    
-						        if(pref_profile_doc.genre) {
-					                     index =  self.search(pref_profile_doc.genre,genre_info);
-		                                             if(index != -1) {
-							 	 console.log('existing genre entry.updating existing stuff '+genre_info);
-						                 pref_profile_doc.genre[index].pref_index += preference_bump;
-		                                             }
-	                                                     else {
-						                console.log('no existing genre entry. adding stuff '+genre_info);
-		                                                pref_profile_doc.genre.push({name:genre_info,pref_index:preference_bump});
-	                                                     }
-				                         }
-					                 else {
-							     console.log('pushing first gnere entry with name'+genre_info);
-		                                             pref_profile_doc.genre.push({name:genre_info,pref_index:preference_bump});
-                                                         }
-                                                   /************ end of genre update *********************/
+                                                       function update_title_pref_matrix()
+						       { 
+						           for (var k =0; k < title_info.length;k++)
+					                   { 
+						                if(pref_profile_doc.title_words) {
+					                            index =  self.search(pref_profile_doc.title_words,title_info[k]);
+		                                                    if(index != -1) {
+							 	        console.log('existing title words entry.updating existing stuff '+title_info[k]);
+						                        pref_profile_doc.title_words[index].pref_index += preference_bump;
+		                                                    }
+	                                                         else {
+						                    console.log('no existing title words entry.adding stuff '+title_info[k]);
+		                                                    pref_profile_doc.title_words.push({name:title_info[k],pref_index:preference_bump});
+	                                                         }
+				                               }
+					                       else {
+							         console.log('pushing first title entry with name'+title_info[k]);
+		                                                 pref_profile_doc.title_words.push({name:title_info[k],pref_index:preference_bump});
+                                                              }
+						            }
+							 }     
+						    }
+                                              });      
+		                         }		       
 
-						    /*************update title words data *********************/
-                                                    
-						   for (var k =0; k < title_info.length;k++)
-					           { 
 
-						        if(pref_profile_doc.title_words) {
-					                     index =  self.search(pref_profile_doc.title_words,title_info[k]);
-		                                             if(index != -1) {
-							 	 console.log('existing title words entry.updating existing stuff '+title_info[k]);
-						                 pref_profile_doc.title_words[index].pref_index += preference_bump;
-		                                             }
-	                                                     else {
-						                console.log('no existing title words entry.adding stuff '+title_info[k]);
-		                                                pref_profile_doc.title_words.push({name:title_info[k],pref_index:preference_bump});
-	                                                     }
-				                         }
-					                 else {
-							     console.log('pushing first title entry with name'+title_info[k]);
-		                                             pref_profile_doc.title_words.push({name:title_info[k],pref_index:preference_bump});
-                                                         }
-						   }
-                                                   /************ end of title words update *********************/
+	                     var queue = async.queue(update_pref_matrix_per_usage_entry,1); 
+		     
+		             console.log('lets dump their history right now.history length is '+user_usage_doc.viewing_history.length);
 
-				   		    pref_profile_doc.save();
-						 }
+	                    for (var j =0;j<user_usage_doc.viewing_history.length;j++)
+	                    {
+	   	                 console.log('program id of the program watched is '+user_usage_doc.viewing_history[j].program_id);
+                                 var usage_details= {program_id:user_usage_doc.viewing_history[j].program_id
+				                 ,duration:user_usage_doc.viewing_history[j].duration};
+		      	         queue.push(usage_details,function(err) {
+					 console.log('update pushed successfully');
 
-  	                                });
-                                 });       
-                        }
-              }
+			         });	     
+                            }
+  	               });
+               }
         });
 }
 
