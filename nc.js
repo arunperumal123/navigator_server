@@ -158,7 +158,6 @@ recommender.prototype.search = function include(arr, obj) {
 
 recommender.prototype.update_pref_matrix = function()
 {
-console.log("xxxxxxx");
        var self = this;	
        users_usage_model.find({},function(err,usage_docs)
        {
@@ -294,6 +293,12 @@ console.log("xxxxxxx");
 
 recommender.prototype.refresh_recommendations = function(username)
 {
+
+	var directorWeightage = 5;
+	var castWeightage = 3;
+	var titleweightage = 2;
+	var genreWeightage=1;
+	
 	username = "nc";//for testing
 	console.log("refresh_recommendations");
 	var recItems = new Array();
@@ -305,7 +310,7 @@ recommender.prototype.refresh_recommendations = function(username)
 			//console.log("genre="+usage_docs.genre);
 			//console.log("director="+usage_docs.director);
 			//console.log("title_words="+usage_docs.title_words);
-		epg_index_model.findSimilarPrograms(null, "empire", function(program_doc) { // replace with actualquery
+		epg_index_model.findUpcomingPrograms(function(program_doc) { // replace with actualquery
 		
 			var len = program_doc.length;
 			for(var i=0;i<len;i++) {
@@ -321,7 +326,7 @@ recommender.prototype.refresh_recommendations = function(username)
 				for (var z=0; z < cast.length; z++) {
 					index =  that.search(usage_docs.cast, cast[z]);
 					if(index!=-1) {
-					    pref += parseInt(usage_docs.cast[index].pref_index,10);	
+					    pref += (parseInt(usage_docs.cast[index].pref_index,10) * castWeightage);	
 					}
 					console.log("cast ="+cast[z]+"="+index);
 				}
@@ -331,7 +336,7 @@ recommender.prototype.refresh_recommendations = function(username)
 					index =  that.search(usage_docs.title_words, title[z]);
 					if(index!=-1) {
 						console.log(usage_docs.title_words[index]);
-					    pref += parseInt(usage_docs.title_words[index].pref_index,10);	
+					    pref += (parseInt(usage_docs.title_words[index].pref_index,10) *titleweightage);	
 					}
 					console.log("title ="+title[z]+"="+index);
 				}
@@ -341,7 +346,7 @@ recommender.prototype.refresh_recommendations = function(username)
 					index =  that.search(usage_docs.genre, title[z]);
 					if(index!=-1) {
    						console.log(usage_docs.genre[index]);
-					    pref += parseInt(usage_docs.genre[index].pref_index,10);	
+					    pref += (parseInt(usage_docs.genre[index].pref_index,10) * genreWeightage);
 					}
 					console.log("genre ="+genre+"="+index);
 				}
@@ -351,7 +356,7 @@ recommender.prototype.refresh_recommendations = function(username)
 					index =  that.search(usage_docs.director, title[z]);
 					if(index!=-1) {
    						console.log(usage_docs.director[index]);
-					    pref += parseInt(usage_docs.director[index].pref_index,10);	
+					    pref += (parseInt(usage_docs.director[index].pref_index,10) * directorWeightage);	
 					}
 					console.log("director ="+director+"="+index);
 				}				
@@ -369,9 +374,7 @@ recommender.prototype.refresh_recommendations = function(username)
 							console.log("===============================================================");
 				console.log("===============================================================");
 
-			for(var p=0;p<recItems.length;p++){
-				console.log(recItems[p]);
-			}
+			
 			recItems.sort(that.sortByPreferenceDesc);
 			
 							console.log("===============================================================");
@@ -382,34 +385,25 @@ recommender.prototype.refresh_recommendations = function(username)
 			//}			
 			console.log("Sorted recItems ="+ recItems);	
 			
-			
+			live_recos_model.remove({users_id:username});
+			live_recos_model.remove({});
+			console.log('removedwwwww');
+			var recItemsLen = recItems.length;
+			recItemsLen = (recItemsLen>10)?10:recItemsLen;
+			//return;
 			live_recos_model.findOneAndUpdate( {users_id:username},{users_id:username},{upsert:true,new:true}
-						                      ,function(err, live_reco_doc) {									  
+						                      ,function(err, live_reco_doc) {
 											  console.log(live_reco_doc);
-											  
-											  for(var q=0;q<recItems.length;q++) {
-											  console.log(recItems[q]);
-												/*var itemObj = {};
-												itemObj.program_id = recItems[q].program_id;
-												itemObj.genre = recItems[q].genre;
-												itemObj.title = recItems[q].title;
-												itemObj.start_time = recItems[q].start_time;
-												itemObj.end_time = recItems[q].end_time;
-												itemObj.audio_type = recItems[q].audio_type;
-												
-												itemObj.channel_index = recItems[q].channel_index;
-												itemObj.cast = recItems[q].cast;
-												itemObj.director = recItems[q].director;
-												itemObj.synopsis = recItems[q].synopsis;
-												itemObj.preference = recItems[q].preference;*/
-												live_recos_model.update({users_id:username},{$push:{reco_programs:recItems[q]}},{upsert:true}
-						                      ,function(err,response) {
-											  console.log("ERROR="+err);
-											  											  console.log("response="+response);
+											  live_reco_doc.reco_programs.pull({});
+											  live_reco_doc.save();
 
-											  });
+
+											  for(var q=0;q<recItemsLen;q++) {
+											  console.log(recItems[q]);
+											  live_reco_doc.reco_programs.push(recItems[q]);
+												
 											  }
-									
+									live_reco_doc.save();
 			                                               //live_reco_doc.push(recItems);
 															//live_reco_doc.save();
 											  
