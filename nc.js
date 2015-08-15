@@ -1,42 +1,29 @@
-console.log("11111111");
 var request = require('request');
-console.log("222");
-
 var inspect = require('util').inspect;
-console.log("333");
-
 var fs = require('fs');
 var mongoose = require('mongoose');
 var async = require('async');
 var CronJob = require('cron').CronJob;
-console.log("444");
-
 
 var live_recos_model = require('./lib/models/reco_live_recos_model');
-console.log("555");
 
 var users_pref_profile_model = require('./lib/models/reco_users_pref_profile_model');
-console.log("666");
 
 var users_usage_model = require('./lib/models/reco_users_usage_model.js');
-console.log("777");
 
 var epg_index_model = require('./lib/models/index');
-console.log("888");
 
 
 var epg_data_available_days = 14;
-console.log("999");
 
-console.log("last");
 
 recommender = function()
 {
     this.date;
     this.max_db_concurrency=5;
 	
-	//this.update_pref_matrix(this);
-    this.refresh_recommendations(this);
+	this.update_pref_matrix(this);
+    //this.refresh_recommendations(this);
 
 	//this.init_pref_matrix_cron_job();
 	//this.init_live_recommender_cron_job();
@@ -155,8 +142,194 @@ recommender.prototype.search = function include(arr, obj) {
 }
 
 
-
 recommender.prototype.update_pref_matrix = function()
+{
+       var self = this;	
+       users_usage_model.find({},function(err,usage_docs)
+       {
+          console.log('no of users needs recommendation badly is '+usage_docs.length);
+            
+			var usrUsagesList= [];
+	  for (var i =0; i < usage_docs.length; i++)
+	  {
+	       var user_usage_doc = usage_docs[i];
+	       var user_usage_id = user_usage_doc.users_id;	  
+	       usrUsagesList[user_usage_id] = usage_docs[i];
+           console.log("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%user:"+user_usage_id);
+		   if(user_usage_id=='nc1') console.log(user_usage_doc);
+		              console.log("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%user:"+user_usage_id);
+continue;
+		   if(user_usage_id!='nc1') continue;
+		   
+		   console.log(usage_docs[i]);
+	           //for every user, first get the current preference indiex
+                   users_pref_profile_model.findOneAndUpdate( {users_id:user_usage_id},{users_id:user_usage_id},{upsert:true,new:true}
+						                      ,function(err,pref_profile_doc) {
+											  
+											  
+if(err)	{             
+console.log(err);
+//return;
+}
+											  console.log("==========="+pref_profile_doc.users_id);
+
+				
+			      function update_pref_matrix_per_usage_entry(pref_profile_doc_obj, usage_details,callback)         
+	                      {
+                                      console.log('program id of the usage requested for update is '+usage_details.program_id);
+			               epg_index_model.getProgramInfo(null,usage_details.program_id,function(program_doc) {
+		 	                
+				                 if(program_doc) {
+				                      var cast_info = (program_doc.cast)?program_doc.cast.split(","):new Array();
+				                      var director_info = program_doc.director;
+				                      var genre_info =    program_doc.genre;
+				                      var title_info = (program_doc.title)?program_doc.title.split(" "):new Array();
+
+						      var preference_bump =usage_details.duration/20; //one point per every 20 secs watch 
+                                                       var index;
+
+			                               //console.log('user1='+user_usage_id+';&&&&&&&&&&&&&&&&start the doc looks as '+pref_profile_doc);
+                              
+                                                      if(cast_info)
+						         update_cast_pref_matrix();
+						       if(director_info)
+                                                           update_director_pref_matrix();
+                                                       if(genre_info)
+				                            update_genre_pref_matrix();
+                                                        if(title_info)
+				                            update_title_pref_matrix();
+						    
+						     	pref_profile_doc_obj.save(function(err){
+							       callback(err);
+							    }); 
+						        
+						       //console.log('user2='+user_usage_id+';&&&&&&&&&&&&&&&&end the doc looks as '+pref_profile_doc);
+  
+
+                                                       function update_cast_pref_matrix()
+						       {
+          
+						           for (var k =0; k<cast_info.length;k++)
+					                   { 
+ 
+						                if(pref_profile_doc_obj.cast) {
+					                            index =  self.search(pref_profile_doc_obj.cast,cast_info[k]);
+		                                                    if(index != -1) {
+							 	     // console.log('existing cast entry.updating existing stuff '+cast_info[k]);
+						                      pref_profile_doc_obj.cast[index].pref_index += preference_bump;
+		                                                    }
+	                                                           else {
+						                      //console.log('no existing cast entry.adding stuff '+cast_info[k]);
+		                                                      pref_profile_doc_obj.cast.push({name:cast_info[k],pref_index:preference_bump});
+	                                                          }
+				                               }
+					                       else {
+							           //console.log('pushing first cast entry with name'+cast_info[k]);
+		                                                   pref_profile_doc_obj.cast.push({name:cast_info[k],pref_index:preference_bump});
+                                                               }
+						            }
+									
+						       }
+
+                                                       function update_director_pref_matrix()
+						       { 
+						            if(pref_profile_doc_obj.director) {
+					                        index =  self.search(pref_profile_doc_obj.director,director_info);
+		                                                if(index != -1) {
+							   	     //console.log('existing director entry.updating existing stuff '+director_info);
+						                      pref_profile_doc_obj.director[index].pref_index += preference_bump;
+		                                                }
+	                                                        else {
+						                   //console.log('no existing director entry.adding stuff '+director_info);
+		                                                   pref_profile_doc_obj.director.push({name:director_info,pref_index:preference_bump});
+	                                                        }
+				                             }
+					                     else {
+							         //console.log('pushing first director entry with name'+director_info);
+		                                                 pref_profile_doc_obj.director.push({name:director_info,pref_index:preference_bump});
+                                                             }
+                                                        }
+
+                                                   
+                                                       
+                                                       function update_genre_pref_matrix()
+						       { 
+						            if(pref_profile_doc_obj.genre) {
+					                        index =  self.search(pref_profile_doc_obj.genre,genre_info);
+		                                                if(index != -1) {
+							 	     //console.log('existing genre entry.updating existing stuff '+genre_info);
+						                     pref_profile_doc_obj.genre[index].pref_index += preference_bump;
+		                                                }
+	                                                        else {
+						                    //console.log('no existing genre entry. adding stuff '+genre_info);
+		                                                    pref_profile_doc_obj.genre.push({name:genre_info,pref_index:preference_bump});
+	                                                        }
+				                              }
+					                      else {
+							         //console.log('pushing first gnere entry with name'+genre_info);
+		                                                 pref_profile_doc_obj.genre.push({name:genre_info,pref_index:preference_bump});
+                                                              }
+															  console.log("genre update: pref_profile_doc="+pref_profile_doc_obj.users_id);
+						       }    
+                                                   
+
+
+                                                       function update_title_pref_matrix()
+						       { 
+						           for (var k =0; k < title_info.length;k++)
+					                   { 
+						                if(pref_profile_doc_obj.title_words) {
+					                            index =  self.search(pref_profile_doc_obj.title_words,title_info[k]);
+		                                                    if(index != -1) {
+							 	        //console.log('existing title words entry.updating existing stuff '+title_info[k]);
+						                        pref_profile_doc_obj.title_words[index].pref_index += preference_bump;
+		                                                    }
+	                                                         else {
+						                    //console.log('no existing title words entry.adding stuff '+title_info[k]);
+		                                                    pref_profile_doc_obj.title_words.push({name:title_info[k],pref_index:preference_bump});
+	                                                         }
+				                               }
+					                       else {
+							         //console.log('pushing first title entry with name'+title_info[k]);
+		                                                 pref_profile_doc_obj.title_words.push({name:title_info[k],pref_index:preference_bump});
+                                                              }
+						            }
+							 }     
+						    }
+                                              });      
+		                         }		       
+
+
+	                     //var queue = async.queue(update_pref_matrix_per_usage_entry,1); 
+		     
+		             console.log('lets dump their history right now.history length is '+user_usage_doc.viewing_history.length);
+
+		             console.log('lets dump their history right now.history length is '+user_usage_doc);
+	                    for (var j =0;j<user_usage_doc.viewing_history.length;j++)
+	                    {
+						
+	   	                 console.log('program id of the program watched is '+user_usage_doc.viewing_history[j].program_id);
+                                 var usage_details= {program_id:user_usage_doc.viewing_history[j].program_id
+				                 ,duration:user_usage_doc.viewing_history[j].duration};
+								 
+								 update_pref_matrix_per_usage_entry(pref_profile_doc, usage_details,function(err) {
+					 console.log('update pushed successfully mmmmmmmmmmmmm');
+
+			         });
+		      	         /*queue.push(usage_details,function(err) {
+					 console.log('update pushed successfully');
+
+			         });	*/     
+                            }
+  	               }
+				   
+				   
+				   );
+               }
+        });
+}
+
+recommender.prototype.update_pref_matrix_Old= function()
 {
        var self = this;	
        users_usage_model.find({},function(err,usage_docs)
