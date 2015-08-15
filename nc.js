@@ -141,8 +141,163 @@ recommender.prototype.search = function include(arr, obj) {
     return -1;
 }
 
+recommender.prototype.update_pref_matrix = function () {
 
-recommender.prototype.update_pref_matrix = function()
+    var self = this;	
+	
+	users_usage_model.find({},function(err,usageDocs) {
+		console.log('no of users needs recommendation badly is '+usageDocs.length);
+		
+		var usageDocsLength = usageDocs.length;
+		for (var i = 0; i < usageDocsLength; i++) {
+			var userUsageDoc = usageDocs[i];		
+			var userUsageId = userUsageDoc.users_id;	  
+			console.log("User ID = "+ userUsageId);
+			//if (userUsageId!='user1' ) continue;
+			
+			users_pref_profile_model.findOneAndUpdate( {users_id: userUsageId},{users_id: userUsageId},{upsert:true,new:true}, userPrefModelCallback(userUsageDoc));		   
+		}
+		
+		function userPrefModelCallback(userUsageDocObj) {
+		
+			return function(err, prefProfileDoc) {
+				console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ==>");
+				console.log(userUsageDocObj);	
+				console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ <==");
+
+	            for (var j =0; j < userUsageDocObj.viewing_history.length; j++) {
+					var usageDetails= {program_id:userUsageDocObj.viewing_history[j].program_id
+				                 ,duration:userUsageDocObj.viewing_history[j].duration};
+				    epg_index_model.getProgramInfo(null, usageDetails.program_id, progInfoModelCallback(userUsageDocObj, usageDetails, prefProfileDoc));
+		      	}
+			}
+		}
+		
+		function progInfoModelCallback(usageDetailsParam, usageDetailsParam, prefProfileDocParam) {
+			return function(programDoc) {
+			
+				if(programDoc) {
+					var castInfo = (programDoc.cast)?programDoc.cast.split(","):new Array();
+					var directorInfo = programDoc.director;
+					var genreInfo = programDoc.genre;
+					var titleInfo = (programDoc.title)?programDoc.title.split(" "):new Array();
+
+				    var preferenceBump =usageDetailsParam.duration/(20*60); //one point per every 20 secs watch 
+                    var index;
+    
+                    if(castInfo) {
+						updateCastPrefMatrix();
+					}
+					
+					if(directorInfo) {
+                        updateDirectorPrefMatrix();
+					}
+                    if(genreInfo) {
+					    updateGenrePrefMatrix();
+					}
+				    if(titleInfo) {
+				        updateTitlePrefMatrix();
+					}  
+
+					prefProfileDocParam.save(function(err){
+						console.log("saved");
+						console.log("ERROR="+err);
+						//callback(err);
+				    }); 
+
+                    function updateCastPrefMatrix() {
+						for (var k =0; k < castInfo.length; k++) { 
+							if(prefProfileDocParam.cast) {
+								index =  self.search(prefProfileDocParam.cast,castInfo[k]);
+								if(index != -1) {
+									// console.log('existing cast entry.updating existing stuff '+cast_info[k]);
+									prefProfileDocParam.cast[index].pref_index += preferenceBump;
+								}
+								else {
+									//console.log('no existing cast entry.adding stuff '+cast_info[k]);
+									prefProfileDocParam.cast.push({name:castInfo[k],pref_index:preferenceBump});
+								}
+							}
+							else {
+								//console.log('pushing first cast entry with name'+cast_info[k]);
+								prefProfileDocParam.cast.push({name:castInfo[k],pref_index:preferenceBump});
+							}
+						}
+					}
+
+					function updateDirectorPrefMatrix() { 
+						if(prefProfileDocParam.director) {
+							index =  self.search(prefProfileDocParam.director, directorInfo);
+							if(index != -1) {
+								//console.log('existing director entry.updating existing stuff '+directorInfo);
+							prefProfileDocParam.director[index].pref_index += preferenceBump;
+							}
+							else {
+								//console.log('no existing director entry.adding stuff '+director_info);
+								prefProfileDocParam.director.push({name:directorInfo,pref_index:preferenceBump});
+							}
+						}
+						else {
+							//console.log('pushing first director entry with name'+director_info);
+							prefProfileDocParam.director.push({name:directorInfo,pref_index:preferenceBump});
+						}
+					}                                              
+                                                       
+					function updateGenrePrefMatrix() { 
+						if(prefProfileDocParam.genre) {
+							index =  self.search(prefProfileDocParam.genre,genreInfo);
+							if(index != -1) {
+								//console.log('existing genre entry.updating existing stuff '+genre_info);
+								prefProfileDocParam.genre[index].pref_index += preferenceBump;
+							}
+							else {
+								//console.log('no existing genre entry. adding stuff '+genre_info);
+								prefProfileDocParam.genre.push({name:genreInfo,pref_index:preferenceBump});
+							}
+						}
+						else {
+							//console.log('pushing first gnere entry with name'+genre_info);
+							prefProfileDocParam.genre.push({name:genreInfo,pref_index:preferenceBump});
+						}
+						console.log("genre update: pref_profile_doc="+prefProfileDocParam.users_id);
+					}    
+
+					function updateTitlePrefMatrix() { 
+						for (var k =0; k < titleInfo.length; k++) { 
+							if(prefProfileDocParam.title_words) {
+								index =  self.search(prefProfileDocParam.title_words,titleInfo[k]);
+								if(index != -1) {
+									//console.log('existing title words entry.updating existing stuff '+titleInfo[k]);
+									prefProfileDocParam.title_words[index].pref_index += preferenceBump;
+								}
+								else {
+									//console.log('no existing title words entry.adding stuff '+title_info[k]);
+									prefProfileDocParam.title_words.push({name:titleInfo[k],pref_index:preferenceBump});
+								}
+							}
+							else {
+								//console.log('pushing first title entry with name'+title_info[k]);
+								prefProfileDocParam.title_words.push({name:titleInfo[k],pref_index:preferenceBump});
+							}
+						}
+					}
+     
+				}	
+			}
+		}
+	});
+}
+/*	   	                 //console.log('program id of the program watched is '+user_usage_doc.viewing_history[j].program_id);
+                                 var usage_details= {program_id:user_usage_doc_obj.viewing_history[j].program_id
+				                 ,duration:user_usage_doc_obj.viewing_history[j].duration};
+								 
+								 update_pref_matrix_per_usage_entry(pref_profile_doc, usage_details,function(err) {
+					 console.log('update pushed successfully mmmmmmmmmmmmm');
+
+			         });*/
+
+
+recommender.prototype.update_pref_matrix_Old2 = function()
 {
        var self = this;	
        users_usage_model.find({},function(err,usage_docs)
@@ -158,14 +313,26 @@ recommender.prototype.update_pref_matrix = function()
            console.log("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%user:"+user_usage_id);
 		   if(user_usage_id=='nc1') console.log(user_usage_doc);
 		              console.log("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%user:"+user_usage_id);
-continue;
-		   if(user_usage_id!='nc1') continue;
+		   if(user_usage_id!='nc') continue;
 		   
 		   console.log(usage_docs[i]);
 	           //for every user, first get the current preference indiex
                    users_pref_profile_model.findOneAndUpdate( {users_id:user_usage_id},{users_id:user_usage_id},{upsert:true,new:true}
-						                      ,function(err,pref_profile_doc) {
-											  
+						                      , callBackForUserPref(user_usage_doc)
+				   
+				   
+				   );
+               }
+        });
+		
+		
+function callBackForUserPref(user_usage_doc_obj) {		
+		return function(err,pref_profile_doc) {
+		console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ==>");
+		console.log(user_usage_doc_obj);	
+				console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ <==");
+
+								  
 											  
 if(err)	{             
 console.log(err);
@@ -185,7 +352,7 @@ console.log(err);
 				                      var genre_info =    program_doc.genre;
 				                      var title_info = (program_doc.title)?program_doc.title.split(" "):new Array();
 
-						      var preference_bump =usage_details.duration/20; //one point per every 20 secs watch 
+						      var preference_bump =usage_details.duration/(20*60); //one point per every 20 secs watch 
                                                        var index;
 
 			                               //console.log('user1='+user_usage_id+';&&&&&&&&&&&&&&&&start the doc looks as '+pref_profile_doc);
@@ -302,15 +469,15 @@ console.log(err);
 
 	                     //var queue = async.queue(update_pref_matrix_per_usage_entry,1); 
 		     
-		             console.log('lets dump their history right now.history length is '+user_usage_doc.viewing_history.length);
+		             console.log('lets dump their history right now.history length is '+user_usage_doc_obj.viewing_history.length);
 
-		             console.log('lets dump their history right now.history length is '+user_usage_doc);
-	                    for (var j =0;j<user_usage_doc.viewing_history.length;j++)
+		             //console.log('lets dump their history right now.history length is '+user_usage_doc);
+	                    for (var j =0;j<user_usage_doc_obj.viewing_history.length;j++)
 	                    {
 						
-	   	                 console.log('program id of the program watched is '+user_usage_doc.viewing_history[j].program_id);
-                                 var usage_details= {program_id:user_usage_doc.viewing_history[j].program_id
-				                 ,duration:user_usage_doc.viewing_history[j].duration};
+	   	                 //console.log('program id of the program watched is '+user_usage_doc.viewing_history[j].program_id);
+                                 var usage_details= {program_id:user_usage_doc_obj.viewing_history[j].program_id
+				                 ,duration:user_usage_doc_obj.viewing_history[j].duration};
 								 
 								 update_pref_matrix_per_usage_entry(pref_profile_doc, usage_details,function(err) {
 					 console.log('update pushed successfully mmmmmmmmmmmmm');
@@ -322,11 +489,7 @@ console.log(err);
 			         });	*/     
                             }
   	               }
-				   
-				   
-				   );
-               }
-        });
+				   }
 }
 
 recommender.prototype.update_pref_matrix_Old= function()
