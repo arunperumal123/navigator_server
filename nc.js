@@ -23,7 +23,7 @@ recommender = function()
     this.max_db_concurrency=5;
 	
 	this.update_pref_matrix(this);
-    //this.refresh_recommendations(this);
+    this.refresh_recommendations(this);
 
 	//this.init_pref_matrix_cron_job();
 	//this.init_live_recommender_cron_job();
@@ -280,21 +280,130 @@ recommender.prototype.update_pref_matrix = function () {
 								prefProfileDocParam.title_words.push({name:titleInfo[k],pref_index:preferenceBump});
 							}
 						}
-					}
-     
+					}     
 				}	
 			}
 		}
 	});
 }
-/*	   	                 //console.log('program id of the program watched is '+user_usage_doc.viewing_history[j].program_id);
-                                 var usage_details= {program_id:user_usage_doc_obj.viewing_history[j].program_id
-				                 ,duration:user_usage_doc_obj.viewing_history[j].duration};
-								 
-								 update_pref_matrix_per_usage_entry(pref_profile_doc, usage_details,function(err) {
-					 console.log('update pushed successfully mmmmmmmmmmmmm');
 
-			         });*/
+recommender.prototype.refresh_recommendations = function()
+{
+
+    var that = this;
+	var directorWeightage = 5;
+	var castWeightage = 3;
+	var titleweightage = 2;
+	var genreWeightage=1;
+
+	users_usage_model.find({},function(err,usageDocs) {
+		console.log('no of users needs recommendation badly is '+usageDocs.length);
+		
+		var usageDocsLength = usageDocs.length;
+		for (var i = 0; i < usageDocsLength; i++) {
+			var userUsageDoc = usageDocs[i];		
+			var userUsageId = userUsageDoc.users_id;	  
+			console.log("User ID = "+ userUsageId);
+			//if (userUsageId!='nc' ) continue;
+			users_pref_profile_model.findOne({users_id:userUsageId}, userPrefModelFetchCallback(userUsageDoc));			
+		}
+    });
+	
+	function userPrefModelFetchCallback(userUsageDocObj) {
+		
+		return function(err, userPrefData) {
+		    console.log("USERPREF ERROR="+err);
+			console.log(userPrefData);
+			if(userPrefData) {
+				var recItems = new Array();
+				console.log('DATA='+userPrefData);
+				epg_index_model.findUpcomingPrograms(function(programDoc){ // replace with actualquery
+			
+					var len = programDoc.length;
+					for(var i=0; i<len; i++) {
+						var item = programDoc[i];
+						console.log(programDoc);
+						var pref = 0;
+						console.log("===============================================================");
+
+						var title = (item.title)?item.title.split(" "): new Array();
+						var cast = (item.cast)? item.cast.split(","): new Array();
+						var genre = item.genre;
+						var director = item.director;
+						console.log("item.cast="+cast);
+						for (var z=0; z < cast.length; z++) {
+							index =  that.search(userPrefData.cast, cast[z]);
+							if(index!=-1) {
+								pref += (parseInt(userPrefData.cast[index].pref_index,10) * castWeightage);	
+							}
+							console.log("cast ="+cast[z]+"="+index);
+						}
+						
+						console.log("pref after cast="+pref);
+						for (var z=0; z < title.length; z++) {
+							index =  that.search(userPrefData.title_words, title[z]);
+							if(index!=-1) {
+								console.log(userPrefData.title_words[index]);
+								pref += (parseInt(userPrefData.title_words[index].pref_index,10) *titleweightage);	
+							}
+							console.log("title ="+title[z]+"="+index);
+						}
+						console.log("pref aftertitle="+pref);
+
+						if(genre) {
+							index =  that.search(userPrefData.genre, title[z]);
+							if(index!=-1) {
+								console.log(userPrefData.genre[index]);
+								pref += (parseInt(userPrefData.genre[index].pref_index,10) * genreWeightage);
+							}
+							console.log("genre ="+genre+"="+index);
+						}
+						console.log("pref after genre="+pref);
+
+						if(director) {
+							index =  that.search(userPrefData.director, title[z]);
+							if(index!=-1) {
+								console.log(userPrefData.director[index]);
+								pref += (parseInt(userPrefData.director[index].pref_index,10) * directorWeightage);	
+							}
+							console.log("director ="+director+"="+index);
+						}				
+						
+						if(pref >0 ){
+							item.preference= pref;
+							recItems.push(item);				
+						}
+						console.log("===============================================================");
+					}
+					console.log("recItems =qq"+ recItems);	
+					console.log("===============================================================");			
+					recItems.sort(that.sortByPreferenceDesc);
+					
+					console.log("===============================================================");
+			
+					console.log("Sorted recItems ="+ recItems);	
+					var username = userUsageDocObj.users_id;
+					live_recos_model.remove({users_id:username});
+					var recItemsLen = recItems.length;
+					recItemsLen = (recItemsLen>10)?10:recItemsLen;
+
+					live_recos_model.findOneAndUpdate( {users_id:username},{users_id:username},{upsert:true,new:true}
+									,function(err, liveRecoDoc) {
+										console.log(liveRecoDoc);
+										liveRecoDoc.reco_programs.pull({});
+										liveRecoDoc.save();
+										for(var q=0;q<recItemsLen;q++) {
+											console.log(recItems[q]);
+												liveRecoDoc.reco_programs.push(recItems[q]);	
+										}
+										liveRecoDoc.save();
+									});
+													  
+				});
+			}
+		}
+	}
+}
 
 
 recommender.prototype.update_pref_matrix_Old2 = function()
@@ -627,7 +736,7 @@ recommender.prototype.update_pref_matrix_Old= function()
 }
 
 
-recommender.prototype.refresh_recommendations = function(username)
+recommender.prototype.refresh_recommendationsOLD = function(username)
 {
 
 	var directorWeightage = 5;
