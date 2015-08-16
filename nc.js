@@ -22,8 +22,8 @@ recommender = function()
     this.date;
     this.max_db_concurrency=5;
 	
-	this.update_pref_matrix(this);
-    this.refresh_recommendations(this);
+	//this.update_pref_matrix(this);
+   // this.refresh_recommendations(this);
 
 	//this.init_pref_matrix_cron_job();
 	//this.init_live_recommender_cron_job();
@@ -304,7 +304,7 @@ recommender.prototype.refresh_recommendations = function()
 			var userUsageDoc = usageDocs[i];		
 			var userUsageId = userUsageDoc.users_id;	  
 			console.log("User ID = "+ userUsageId);
-			//if (userUsageId!='nc' ) continue;
+			if (userUsageId!='nc1' ) continue;
 			users_pref_profile_model.findOne({users_id:userUsageId}, userPrefModelFetchCallback(userUsageDoc));			
 		}
     });
