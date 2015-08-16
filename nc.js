@@ -23,10 +23,10 @@ recommender = function()
     this.max_db_concurrency=5;
 	
 	//this.update_pref_matrix(this);
-   // this.refresh_recommendations(this);
+        //this.refresh_recommendations(this);
 
-	//this.init_pref_matrix_cron_job();
-	//this.init_live_recommender_cron_job();
+	this.init_pref_matrix_cron_job();
+	this.init_live_recommender_cron_job();
 };
 
 
@@ -289,7 +289,6 @@ recommender.prototype.update_pref_matrix = function () {
 
 recommender.prototype.refresh_recommendations = function()
 {
-
     var that = this;
 	var directorWeightage = 5;
 	var castWeightage = 3;
@@ -304,7 +303,8 @@ recommender.prototype.refresh_recommendations = function()
 			var userUsageDoc = usageDocs[i];		
 			var userUsageId = userUsageDoc.users_id;	  
 			console.log("User ID = "+ userUsageId);
-			if (userUsageId!='nc1' ) continue;
+
+			//if (userUsageId!='nc3' ) continue;//test code
 			users_pref_profile_model.findOne({users_id:userUsageId}, userPrefModelFetchCallback(userUsageDoc));			
 		}
     });
@@ -322,7 +322,7 @@ recommender.prototype.refresh_recommendations = function()
 					var len = programDoc.length;
 					for(var i=0; i<len; i++) {
 						var item = programDoc[i];
-						console.log(programDoc);
+						//console.log(programDoc);
 						var pref = 0;
 						console.log("===============================================================");
 
@@ -330,43 +330,43 @@ recommender.prototype.refresh_recommendations = function()
 						var cast = (item.cast)? item.cast.split(","): new Array();
 						var genre = item.genre;
 						var director = item.director;
-						console.log("item.cast="+cast);
+						//console.log("item.cast="+cast);
 						for (var z=0; z < cast.length; z++) {
 							index =  that.search(userPrefData.cast, cast[z]);
 							if(index!=-1) {
 								pref += (parseInt(userPrefData.cast[index].pref_index,10) * castWeightage);	
 							}
-							console.log("cast ="+cast[z]+"="+index);
+							//console.log("cast ="+cast[z]+"="+index);
 						}
 						
-						console.log("pref after cast="+pref);
+						//console.log("pref after cast="+pref);
 						for (var z=0; z < title.length; z++) {
 							index =  that.search(userPrefData.title_words, title[z]);
 							if(index!=-1) {
-								console.log(userPrefData.title_words[index]);
+								//console.log(userPrefData.title_words[index]);
 								pref += (parseInt(userPrefData.title_words[index].pref_index,10) *titleweightage);	
 							}
-							console.log("title ="+title[z]+"="+index);
+							//console.log("title ="+title[z]+"="+index);
 						}
-						console.log("pref aftertitle="+pref);
+						//console.log("pref aftertitle="+pref);
 
 						if(genre) {
 							index =  that.search(userPrefData.genre, title[z]);
 							if(index!=-1) {
-								console.log(userPrefData.genre[index]);
+								//console.log(userPrefData.genre[index]);
 								pref += (parseInt(userPrefData.genre[index].pref_index,10) * genreWeightage);
 							}
-							console.log("genre ="+genre+"="+index);
+							//console.log("genre ="+genre+"="+index);
 						}
-						console.log("pref after genre="+pref);
+						//console.log("pref after genre="+pref);
 
 						if(director) {
 							index =  that.search(userPrefData.director, title[z]);
 							if(index!=-1) {
-								console.log(userPrefData.director[index]);
+								//console.log(userPrefData.director[index]);
 								pref += (parseInt(userPrefData.director[index].pref_index,10) * directorWeightage);	
 							}
-							console.log("director ="+director+"="+index);
+							//console.log("director ="+director+"="+index);
 						}				
 						
 						if(pref >0 ){
@@ -375,13 +375,13 @@ recommender.prototype.refresh_recommendations = function()
 						}
 						console.log("===============================================================");
 					}
-					console.log("recItems =qq"+ recItems);	
-					console.log("===============================================================");			
+					//console.log("recItems =qq"+ recItems);	
+					//console.log("===============================================================");			
 					recItems.sort(that.sortByPreferenceDesc);
 					
 					console.log("===============================================================");
 			
-					console.log("Sorted recItems ="+ recItems);	
+					//console.log("Sorted recItems ="+ recItems);	
 					var username = userUsageDocObj.users_id;
 					live_recos_model.remove({users_id:username});
 					var recItemsLen = recItems.length;
@@ -389,12 +389,12 @@ recommender.prototype.refresh_recommendations = function()
 
 					live_recos_model.findOneAndUpdate( {users_id:username},{users_id:username},{upsert:true,new:true}
 									,function(err, liveRecoDoc) {
-										console.log(liveRecoDoc);
+										//console.log(liveRecoDoc);
 										liveRecoDoc.reco_programs.pull({});
 										liveRecoDoc.save();
 										for(var q=0;q<recItemsLen;q++) {
-											console.log(recItems[q]);
-												liveRecoDoc.reco_programs.push(recItems[q]);	
+											//console.log(recItems[q]);
+											liveRecoDoc.reco_programs.push(recItems[q]);	
 										}
 										liveRecoDoc.save();
 									});
