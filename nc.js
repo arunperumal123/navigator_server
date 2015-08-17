@@ -17,6 +17,23 @@ var epg_index_model = require('./lib/models/index');
 var epg_data_available_days = 14;
 
 
+var connecting_words = ["is", "and" , "with", "the", "of", "at", "in","a","for","an", "on", "by"]
+
+function check_is_connecting_word(word)
+{
+   if(!word) return true;
+   var len = connecting_words.length;
+   for (var i =0; i<len ;i++)
+   {
+	   if(word.toUpperCase() == connecting_words[i].toUpperCase())  {
+		 console.log('connecting word '+word+ ' hence ignoring');
+		 return true;
+        }		 
+   }
+   return false;
+}
+
+
 recommender = function()
 {
     this.date;
@@ -265,6 +282,9 @@ recommender.prototype.update_pref_matrix = function () {
 					function updateTitlePrefMatrix() { 
 						for (var k =0; k < titleInfo.length; k++) { 
 							if(prefProfileDocParam.title_words) {
+							
+							   if(check_is_connecting_word(titleInfo[k])) continue;
+							   
 								index =  self.search(prefProfileDocParam.title_words,titleInfo[k]);
 								if(index != -1) {
 									//console.log('existing title words entry.updating existing stuff '+titleInfo[k]);
