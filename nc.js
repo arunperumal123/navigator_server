@@ -17,7 +17,7 @@ var epg_index_model = require('./lib/models/index');
 var epg_data_available_days = 14;
 
 
-var connecting_words = ["is", "and" , "with", "the", "of", "at", "in","a","for","an", "on", "by"]
+var connecting_words = ["is", "and" , "with", "the", "of", "at", "in","a","for","an", "on", "by", "+", "-", ",", "&", " "]
 
 function check_is_connecting_word(word)
 {
