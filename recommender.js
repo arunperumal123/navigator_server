@@ -1,7 +1,7 @@
 var request = require('request');
 var inspect = require('util').inspect;
 var fs = require('fs');
-var mongoose = require('mongoose')
+var mongoose = require('mongoose');
 var async = require('async');
 var CronJob = require('cron').CronJob;
 
@@ -9,6 +9,7 @@ var CronJob = require('cron').CronJob;
 var live_recos_model = require('./lib/models/reco_live_recos_model');
 var users_pref_profile_model = require('./lib/models/reco_users_pref_profile_model');
 var users_usage_model = require('./lib/models/reco_users_usage_model');
+var epg_index_model = require('./lib/models/index');
 
 var epg_data_available_days = 14;
 
@@ -16,11 +17,8 @@ var epg_data_available_days = 14;
 
 recommender = function()
 {
-  this.dbURL = 'mongodb://localhost:27017/usage_trend_and_reco';
-  this.date;
-  this.db;
-  this.max_db_concurrency=5;
-
+    this.date;
+    this.max_db_concurrency=5;
   this.init_pref_matrix_cron_job();
   this.init_live_recommender_cron_job();
 
@@ -34,7 +32,7 @@ recommender.prototype.init_pref_matrix_cron_job = function()
 
       //setting up periodic timer to refresh the date information   
       var job = new CronJob({
-                     cronTime: '0 */2 * * * *',
+                     cronTime: '*/5 * * * * *',
                       onTick: function() {
                               /*
                                * Runs every 2 mins
@@ -95,14 +93,22 @@ recommender.prototype.update_usage = function(user,usage)
        //called by user to update usage , every 1 hour (production) , lab - 2 mins
        //router should call this function , ONLY after validating , the user is in a Valid session.
        //update usage db
-       
-      users_usage_model.findOne({"users_id":user.user_id},function(err,doc)
+      console.log('let me search for one entry here.coming with id as '+user+ 'do i have model here');
+     var query = { users_id: user}; 
+       users_usage_model.findOneAndUpdate(query,{users_id:user},{upsert:true},function(err,doc)
        {
 	    console.log('got the user id');
-            history_length = doc.viewing_history.length;
+      	    var history_length;
+	    
+	    if(doc.viewing_history) {
+                console.log(' no of entries in usage db as of now is '+doc.viewing_history.length);
+            }
+	    else {
+		   history_length =0;
+	    }
+
 	    for (var i = 0 ; i < usage.length; i++)
 	    {
-		    console.log(' no of entries in usage db as of now is '+doc.viewing_history.length);
 	
 	            var item = { program_id :usage[i].program_id,
                                  viewed_date:usage[i].viewed_date,
@@ -111,10 +117,11 @@ recommender.prototype.update_usage = function(user,usage)
 	                      } 
 	
 	
-		    users_usage_model.findOneAndUpdate({users_id:user_id,viewing_history:item}
+		    users_usage_model.update({users_id:user},{$push:{viewing_history:item}},{upsert:true}
 						                      ,function(err,response) {
+				console.log('saved the entry '+item);
 				if(err) {
-	                            console.log('error in updating the usage');
+	                            console.log('error in updating the usage.error is '+err);
                                 }
                       });
              }		    
@@ -122,15 +129,175 @@ recommender.prototype.update_usage = function(user,usage)
 
 }
 
+recommender.prototype.search = function include(arr, obj) {
+    for(var i=0; i<arr.length; i++) {
+        if (arr[i].name == obj)
+	       	return i;
+    }
+    return -1;
+}
+
 
 
 recommender.prototype.update_pref_matrix = function()
 {
-  //create cron job
-  // prune usage history of each user
-  // update pref database in details.
+       var self = this;	
+       users_usage_model.find({},function(err,usage_docs)
+       {
+          console.log('no of users needs recommendation badly is '+usage_docs.length);
+            
+	  for (var i =0; i < usage_docs.length; i++)
+	  {
+	       var user_usage_doc = usage_docs[i];
+	       var user_usage_id = user_usage_doc.users_id;	  
+          
+	           //for every user, first get the current preference indiex
+                   users_pref_profile_model.findOneAndUpdate( {users_id:user_usage_id},{users_id:user_usage_id},{upsert:true,new:true}
+						                      ,function(err,pref_profile_doc) {
+	             
 
-};
+			      function update_pref_matrix_per_usage_entry(usage_details,callback)         
+	                      {
+                                      console.log('program id of the usage requested for update is '+usage_details.program_id);
+			               epg_index_model.getProgramInfo(null,usage_details.program_id,function(program_doc) {
+		 	                
+				                 if(program_doc) {
+				                      var cast_info = program_doc.cast.split(",");
+				                      var director_info = program_doc.director;
+				                      var genre_info =    program_doc.genre;
+				                      var title_info = program_doc.title.split(" ");
+
+						      var preference_bump =usage_details.duration/20; //one point per every 20 secs watch 
+                                                       var index;
+
+			                               console.log('&&&&&&&&&&&&&&&&start the doc looks as '+pref_profile_doc);
+                              
+                                                      if(cast_info)
+						         update_cast_pref_matrix();
+						       if(director_info)
+                                                           update_director_pref_matrix();
+                                                       if(genre_info)
+				                            update_genre_pref_matrix();
+                                                        if(title_info)
+				                            update_title_pref_matrix();
+						    
+						     	pref_profile_doc.save(function(err){
+							       callback(err);
+							}); 
+						        
+						       console.log('&&&&&&&&&&&&&&&&end the doc looks as '+pref_profile_doc);
+  
+
+                                                       function update_cast_pref_matrix()
+						       {
+          
+						           for (var k =0; k<cast_info.length;k++)
+					                   { 
+ 
+						                if(pref_profile_doc.cast) {
+					                            index =  self.search(pref_profile_doc.cast,cast_info[k]);
+		                                                    if(index != -1) {
+							 	      console.log('existing cast entry.updating existing stuff '+cast_info[k]);
+						                      pref_profile_doc.cast[index].pref_index += preference_bump;
+		                                                    }
+	                                                           else {
+						                      console.log('no existing cast entry.adding stuff '+cast_info[k]);
+		                                                      pref_profile_doc.cast.push({name:cast_info[k],pref_index:preference_bump});
+	                                                          }
+				                               }
+					                       else {
+							           console.log('pushing first cast entry with name'+cast_info[k]);
+		                                                   pref_profile_doc.cast.push({name:cast_info[k],pref_index:preference_bump});
+                                                               }
+						            }
+						       }
+
+                                                       function update_director_pref_matrix()
+						       { 
+						            if(pref_profile_doc.director) {
+					                        index =  self.search(pref_profile_doc.director,director_info);
+		                                                if(index != -1) {
+							   	     console.log('existing director entry.updating existing stuff '+director_info);
+						                      pref_profile_doc.director[index].pref_index += preference_bump;
+		                                                }
+	                                                        else {
+						                   console.log('no existing director entry.adding stuff '+director_info);
+		                                                   pref_profile_doc.director.push({name:director_info,pref_index:preference_bump});
+	                                                        }
+				                             }
+					                     else {
+							         console.log('pushing first director entry with name'+director_info);
+		                                                 pref_profile_doc.director.push({name:director_info,pref_index:preference_bump});
+                                                             }
+                                                        }
+
+                                                   
+                                                       
+                                                       function update_genre_pref_matrix()
+						       { 
+						            if(pref_profile_doc.genre) {
+					                        index =  self.search(pref_profile_doc.genre,genre_info);
+		                                                if(index != -1) {
+							 	     console.log('existing genre entry.updating existing stuff '+genre_info);
+						                     pref_profile_doc.genre[index].pref_index += preference_bump;
+		                                                }
+	                                                        else {
+						                    console.log('no existing genre entry. adding stuff '+genre_info);
+		                                                    pref_profile_doc.genre.push({name:genre_info,pref_index:preference_bump});
+	                                                        }
+				                              }
+					                      else {
+							         console.log('pushing first gnere entry with name'+genre_info);
+		                                                 pref_profile_doc.genre.push({name:genre_info,pref_index:preference_bump});
+                                                              }
+						       }    
+                                                   
+
+
+                                                       function update_title_pref_matrix()
+						       { 
+						           for (var k =0; k < title_info.length;k++)
+					                   { 
+						                if(pref_profile_doc.title_words) {
+					                            index =  self.search(pref_profile_doc.title_words,title_info[k]);
+		                                                    if(index != -1) {
+							 	        console.log('existing title words entry.updating existing stuff '+title_info[k]);
+						                        pref_profile_doc.title_words[index].pref_index += preference_bump;
+		                                                    }
+	                                                         else {
+						                    console.log('no existing title words entry.adding stuff '+title_info[k]);
+		                                                    pref_profile_doc.title_words.push({name:title_info[k],pref_index:preference_bump});
+	                                                         }
+				                               }
+					                       else {
+							         console.log('pushing first title entry with name'+title_info[k]);
+		                                                 pref_profile_doc.title_words.push({name:title_info[k],pref_index:preference_bump});
+                                                              }
+						            }
+							 }     
+						    }
+                                              });      
+		                         }		       
+
+
+	                     var queue = async.queue(update_pref_matrix_per_usage_entry,1); 
+		     
+		             console.log('lets dump their history right now.history length is '+user_usage_doc.viewing_history.length);
+
+	                    for (var j =0;j<user_usage_doc.viewing_history.length;j++)
+	                    {
+	   	                 console.log('program id of the program watched is '+user_usage_doc.viewing_history[j].program_id);
+                                 var usage_details= {program_id:user_usage_doc.viewing_history[j].program_id
+				                 ,duration:user_usage_doc.viewing_history[j].duration};
+		      	         queue.push(usage_details,function(err) {
+					 console.log('update pushed successfully');
+
+			         });	     
+                            }
+  	               });
+               }
+        });
+}
 
 
 recommender.prototype.refresh_recommendations = function()
@@ -143,8 +310,6 @@ recommender.prototype.refresh_recommendations = function()
 }
 
 
-
-
 recommender.prototype.trending_now   = function()
 {
 
@@ -153,8 +318,24 @@ recommender.prototype.trending_now   = function()
 }
 
 
-var myrecommender = new recommender();
+recommender.prototype.test_recommender = function()
+{
+  console.log(' testing the recommender ');
+  var usage = [];
 
+  var element1 = {program_id:"1719998813",viewed_date:"2015-08-02",last_viewed_time:"00:15",duration:600};
+  var element2 = {program_id:"1719998814",viewed_date:"2015-08-02",last_viewed_time:"03:15",duration:1200};
+  var element3 = {program_id:"1752453850",viewed_date:"2015-08-02",last_viewed_time:"02:00",duration:400};
 
-module.exports = recommender;
+  usage.push(element1);
+  usage.push(element2);
+  usage.push(element3);
+
+  this.update_usage("123",usage);
+
+}
+
+//expose to outside world.
+exports.recommender = recommender;
+
 
