@@ -16,9 +16,9 @@ var express = require('express'),
     debug = require('debug'),
     router = express.Router(),
     methodOverride = require('method-override'),
-	app = express(),
+	app = express();
 
-   epg_data_collector = require('./rovi_epg_collector').epg_data_collector;
+//    epg_data_collector = require('./rovi_epg_collector').epg_data_collector;
    recommender = require('./recommender').recommender;
 
 
