@@ -49,7 +49,7 @@ recommender.prototype.init_pref_matrix_cron_job = function()
 
       //setting up periodic timer to refresh the date information   
       var job = new CronJob({
-                     cronTime: '*/5 * * * * *',
+                     cronTime: '* */3 * * * *',
                       onTick: function() {
                               /*
                                * Runs every 2 mins
