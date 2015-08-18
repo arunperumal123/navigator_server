@@ -49,7 +49,7 @@ recommender.prototype.init_pref_matrix_cron_job = function()
 
       //setting up periodic timer to refresh the date information   
       var job = new CronJob({
-                     cronTime: '* */3 * * * *',
+                     cronTime: '0 */1 * * * *',
                       onTick: function() {
                               /*
                                * Runs every 2 mins
@@ -72,7 +72,7 @@ recommender.prototype.init_live_recommender_cron_job = function()
 
       //setting up periodic timer to refresh the date information   
       var job = new CronJob({
-                     cronTime: '0 */3 * * * *',
+                     cronTime: '0 */2 * * * *',
                       onTick: function() {
                               /*
                                * Runs every 3 mins
@@ -158,7 +158,8 @@ recommender.prototype.update_pref_matrix = function () {
 
     var self = this;	
 	
-	users_usage_model.find({},function(err,usageDocs) {
+      /* find every single user's document in the usage history collection.Each user has his own document */
+      users_usage_model.find({},function(err,usageDocs) {
 		console.log('no of users needs recommendation badly is '+usageDocs.length);
 		
 		var usageDocsLength = usageDocs.length;
@@ -168,6 +169,7 @@ recommender.prototype.update_pref_matrix = function () {
 			console.log("User ID = "+ userUsageId);
 			//if (userUsageId!='user1' ) continue;
 			
+			/* find preference matrix document of each user from pref matrix collection */
 			users_pref_profile_model.findOneAndUpdate( {users_id: userUsageId},{users_id: userUsageId},{upsert:true,new:true}, userPrefModelCallback(userUsageDoc));		   
 		}
 		
@@ -178,11 +180,14 @@ recommender.prototype.update_pref_matrix = function () {
 				console.log(userUsageDocObj);	
 				console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ <==");
 
+		  /*iterate through each of the viewing history data of the user */		
 	            for (var j =0; j < userUsageDocObj.viewing_history.length; j++) {
 					var usageDetails= {program_id:userUsageDocObj.viewing_history[j].program_id
 				                 ,duration:userUsageDocObj.viewing_history[j].duration};
 				    epg_index_model.getProgramInfo(null, usageDetails.program_id, progInfoModelCallback(userUsageDocObj, usageDetails, prefProfileDoc));
+				    userUsageDocObj.viewing_history.splice(j,1); //remove the element from history.
 		      	}
+		           userUsageDocObj.save();
 			}
 		}
 		
