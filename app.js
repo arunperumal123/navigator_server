@@ -72,7 +72,7 @@ if (ENV === 'development') {
 
 console.log('mongo url is '+config.server.mongoHost);
 mongoose.connect(config.server.mongoHost, {}, function(error, db){
-      if(error) {
+     if(error) {
 	      console.log('error in connecting to db - error '+error);
       }
       else {
@@ -145,10 +145,10 @@ function validate (req, res, next) {
 
 
 //set up rovi data collector here.
-var mycollector;
-mycollector = new epg_data_collector();
+//var mycollector;
+//mycollector = new epg_data_collector();
 //mycollector.start_collection();    //call this function for getting ROVI data. This needs to implement purging. also valid ROVI keys.
-mycollector.update_collection(mycollector);   // call this function, if you want to update your static EPG data to match current dates.
+//mycollector.update_collection(mycollector);   // call this function, if you want to update your static EPG data to match current dates.
 
 
 
