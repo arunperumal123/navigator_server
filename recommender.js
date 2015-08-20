@@ -9,6 +9,7 @@ var live_recos_model = require('./lib/models/reco_live_recos_model');
 var users_pref_profile_model = require('./lib/models/reco_users_pref_profile_model');
 var users_usage_model = require('./lib/models/reco_users_usage_model');
 var epg_index_model = require('./lib/models/index');
+var user_collections_model  = require('./lib/models/user.js');
 
 var epg_data_available_days = 14;
 
@@ -317,24 +318,31 @@ recommender.prototype.refresh_recommendations = function()
 	var genreWeightage=1;
 	
 	// /*MODIFY*/fetch from user_collection
-	users_usage_model.find({},function(err,usageDocs) {
-		console.log('no of users needs recommendation badly is '+usageDocs.length);
+	user_collections_model.find({},function(err,userRecords) {
+		if(err) {
+			console.log("user_collections_model="+err);
+			return;	
+		}
+		console.log('no of users needs recommendation badly is '+userRecords.length);
 		
-		var usageDocsLength = usageDocs.length;
-		for (var i = 0; i < usageDocsLength; i++) {
-			var userUsageDoc = usageDocs[i];		
-			var userUsageId = userUsageDoc.users_id;	  
-			console.log("User ID = "+ userUsageId);
-
-			//if (userUsageId!='nc3' ) continue;//test code
-			users_pref_profile_model.findOne({users_id:userUsageId}, userPrefModelFetchCallback(userUsageDoc));			
+		var userRecordsLength = userRecords.length;
+		for (var i = 0; i < userRecordsLength; i++) {
+			var userRecordItem = userRecords[i];		
+			var userName = userRecordItem.username;	  
+			console.log("User ID = "+ userName);
+			//if (userName!='nc3' ) continue;//test code
+			users_pref_profile_model.findOne({users_id:userName}, userPrefModelFetchCallback(userRecordItem));			
 		}
     });
 	
-	function userPrefModelFetchCallback(userUsageDocObj) {
+	function userPrefModelFetchCallback(userRecordItemObj) {
 		
 		return function(err, userPrefData) {
-		    console.log("USERPREF ERROR="+err);
+		
+			if(err) {
+				console.log("USERPREF ERROR="+err);
+				return;
+			}
 			console.log(userPrefData);
 			if(userPrefData) {
 				var recItems = new Array();
@@ -342,7 +350,7 @@ recommender.prototype.refresh_recommendations = function()
 				epg_index_model.findUpcomingPrograms(function(programDoc){ // replace with actualquery
 			
 					var len = programDoc.length;
-					console.log("=======================================================userID="+userUsageDocObj.users_id+";========len="+len);
+					console.log("===================userID="+userRecordItemObj.username+";========len="+len);
 
 					for(var i=0; i<len; i++) {
 						var item = programDoc[i];
@@ -357,7 +365,7 @@ recommender.prototype.refresh_recommendations = function()
 						for (var z=0; z < cast.length; z++) {
 							index =  that.search(userPrefData.cast, cast[z]);
 							if(index!=-1) {
-								pref += (parseInt(userPrefData.cast[index].pref_index,10) * castWeightage);	
+								pref += (userPrefData.cast[index].pref_index * castWeightage);	
 							}
 							//console.log("cast ="+cast[z]+"="+index);
 						}
@@ -367,53 +375,57 @@ recommender.prototype.refresh_recommendations = function()
 							index =  that.search(userPrefData.title_words, title[z]);
 							if(index!=-1) {
 								//console.log(userPrefData.title_words[index]);
-								pref += (parseInt(userPrefData.title_words[index].pref_index,10) *titleweightage);	
+								pref += (userPrefData.title_words[index].pref_index *titleweightage);	
 							}
 							//console.log("title ="+title[z]+"="+index);
 						}
 						//console.log("pref aftertitle="+pref);
 
 						if(genre) {
-							index =  that.search(userPrefData.genre, title[z]);
+							index =  that.search(userPrefData.genre, genre);
 							if(index!=-1) {
 								//console.log(userPrefData.genre[index]);
-								pref += (parseInt(userPrefData.genre[index].pref_index,10) * genreWeightage);
+								pref += (userPrefData.genre[index].pref_index * genreWeightage);
 							}
 							//console.log("genre ="+genre+"="+index);
 						}
 						//console.log("pref after genre="+pref);
 
 						if(director) {
-							index =  that.search(userPrefData.director, title[z]);
+							index =  that.search(userPrefData.director, director);
 							if(index!=-1) {
 								//console.log(userPrefData.director[index]);
-								pref += (parseInt(userPrefData.director[index].pref_index,10) * directorWeightage);	
+								pref += (userPrefData.director[index].pref_index * directorWeightage);	
 							}
 							//console.log("director ="+director+"="+index);
 						}				
 						
 						if(pref >0 ){
 							item.preference= pref;
-							recItems.push(item);				
+							//console.log(item.title);
+							recItems.push(item);
+							//recItems[item.title] = item;
+							
 						}
 					}
+					
 					//console.log("recItems =qq"+ recItems);	
 					//console.log("===============================================================");			
 					recItems.sort(that.sortByPreferenceDesc);
 					
-					console.log("================Completed sorting of results ===============================================");
+					console.log("================Completed sorting of results ===============================================recItems.len"+recItems.length);
 			
 					//console.log("Sorted recItems ="+ recItems);	
-					var username = userUsageDocObj.users_id;
-					live_recos_model.remove({users_id:username});
+					var username = userRecordItemObj.username;
 					var recItemsLen = recItems.length;
 					recItemsLen = (recItemsLen>10)?10:recItemsLen;
-
+					console.log("recItemsLen=="+recItemsLen);
 					live_recos_model.findOneAndUpdate( {users_id:username},{users_id:username},{upsert:true,new:true}
 									,function(err, liveRecoDoc) {
 										//console.log(liveRecoDoc);
-										liveRecoDoc.reco_programs.pull({});
+										liveRecoDoc.reco_programs =[];
 										liveRecoDoc.save();
+										//console.log("===="+liveRecoDoc.reco_programs);
 										for(var q=0;q<recItemsLen;q++) {
 											//console.log(recItems[q]);
 											liveRecoDoc.reco_programs.push(recItems[q]);	

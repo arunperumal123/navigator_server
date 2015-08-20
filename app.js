@@ -18,7 +18,7 @@ var express = require('express'),
     methodOverride = require('method-override'),
 	app = express(),
 
-   epg_data_collector = require('./rovi_epg_collector').epg_data_collector;
+   epg_data_collector = require('./rovi_epg_collector').epg_data_collector,
    recommender = require('./recommender').recommender;
 
 
@@ -145,10 +145,10 @@ function validate (req, res, next) {
 
 
 //set up rovi data collector here.
-var mycollector;
-mycollector = new epg_data_collector();
+//var mycollector;
+//mycollector = new epg_data_collector();
 //mycollector.start_collection();    //call this function for getting ROVI data. This needs to implement purging. also valid ROVI keys.
-mycollector.update_collection(mycollector);   // call this function, if you want to update your static EPG data to match current dates.
+//mycollector.update_collection(mycollector);   // call this function, if you want to update your static EPG data to match current dates.
 
 
 
